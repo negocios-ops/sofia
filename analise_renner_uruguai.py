@@ -87,15 +87,17 @@ def extrair_produtos_renner(navegador, url_base, arquivo_saida, titulo_genero, t
         relatar("Nenhum produto encontrado.")
         return None
 
-    # --- MONTAGEM DO PDF ---
-    relatar(f"Montando PDF com {len(produtos_capturados)} produtos. Aguarde...")
+# --- MONTAGEM DO PDF ---
+    relatar(f"Montando PDF de {titulo_categoria} com {len(produtos_capturados)} itens...")
     largura, altura = 1240, 1754
     paginas_pdf = []
     data_geracao = datetime.now().strftime("%d/%m/%Y")
     
+    # 🎀 CARREGANDO E AUMENTANDO A LOGO (Alteração aqui)
     try:
         logo_img = Image.open("logo.png").convert("RGBA")
-        logo_img.thumbnail((150, 60), Image.Resampling.LANCZOS)
+        # Aumentei o tamanho máximo da logo para (200, 80)
+        logo_img.thumbnail((200, 80), Image.Resampling.LANCZOS)
     except Exception:
         logo_img = None
 
@@ -105,19 +107,17 @@ def extrair_produtos_renner(navegador, url_base, arquivo_saida, titulo_genero, t
         f_tit = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 55)
         f_sub = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 45)
         f_txt = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 30)
-        f_rodape = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 25)
+        f_rodape = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 25) # Fonte do carimbo
     except: 
         f_tit = f_sub = f_txt = f_rodape = ImageFont.load_default()
 
     draw.text((620, 150), "Análise de Mercado - Renner Uruguay", fill="black", font=f_tit, anchor="mm")
     draw.text((620, 230), f"Gênero: {titulo_genero}", fill="gray", font=f_sub, anchor="mm")
     draw.text((620, 290), f"Categoria: {titulo_categoria}", fill="gray", font=f_sub, anchor="mm")
-    
     draw.text((620, 420), "Resumo de Faixas de Preço", fill="black", font=f_sub, anchor="mm")
 
     y_pos = 500
     precos = [p['preco'] for p in produtos_capturados]
-    
     qtd_base = len([p for p in precos if p <= 490])
     draw.text((350, y_pos), f"Até UYU 490 ........................... {qtd_base} produtos", fill="black", font=f_txt)
     y_pos += 45
@@ -130,13 +130,15 @@ def extrair_produtos_renner(navegador, url_base, arquivo_saida, titulo_genero, t
     
     qtd_final = len([p for p in precos if p > 1990])
     draw.text((350, y_pos), f"Acima de UYU 1.990 .................... {qtd_final} produtos", fill="black", font=f_txt)
-    
     draw.text((620, y_pos + 100), f"TOTAL: {len(produtos_capturados)} produtos únicos mapeados", fill="black", font=f_tit, anchor="mm")
     draw.text((620, altura - 100), f"Gerado em: {data_geracao}", fill="gray", font=f_txt, anchor="mm")
     
-    draw.text((850, 1680), "Conteúdo gerado por:", fill="gray", font=f_rodape)
-    if logo_img:
-        capa.paste(logo_img, (1070, 1660), logo_img)
+    # 🎀 CARIMBANDO A CAPA (Alteração nas coordenadas aqui)
+    # Movi o texto de 850 para 950 na coordenada X para ir mais para a direita
+    draw.text((950, 1680), "Conteúdo gerado por:", fill="gray", font=f_rodape)
+    if logo_img: 
+        # Movi a logo de 1070 para 1170 na coordenada X para alinhar
+        capa.paste(logo_img, (1170, 1660), logo_img)
 
     paginas_pdf.append(capa)
 
@@ -152,18 +154,18 @@ def extrair_produtos_renner(navegador, url_base, arquivo_saida, titulo_genero, t
             d_prod = ImageDraw.Draw(img_copy)
             d_prod.rectangle([0, 0, 180, 50], fill="red")
             d_prod.text((10, 5), f"UYU {prod['preco']:.0f}", fill="white", font=f_txt)
-            coluna, linha = j % 3, j // 3
-            x, y = 20 + (coluna * 400), 30 + (linha * 560) 
+            x, y = 20 + ((j % 3) * 400), 30 + ((j // 3) * 560) 
             pagina.paste(img_copy, (x, y))
             
-        d_pagina.text((850, 1680), "Conteúdo gerado por:", fill="gray", font=f_rodape)
-        if logo_img:
-            pagina.paste(logo_img, (1070, 1660), logo_img)
-            
+        # 🎀 CARIMBANDO AS PÁGINAS DA GRADE (Alteração nas coordenadas aqui)
+        # Apliquei o mesmo deslocamento de 100px para a direita
+        d_pagina.text((950, 1680), "Conteúdo gerado por:", fill="gray", font=f_rodape)
+        if logo_img: 
+            pagina.paste(logo_img, (1170, 1660), logo_img)
         paginas_pdf.append(pagina)
 
     paginas_pdf[0].save(arquivo_saida, save_all=True, append_images=paginas_pdf[1:])
-    relatar("✅ PDF finalizado e salvo com sucesso!")
+    relatar(f"PDF de {titulo_categoria} pronto!")
     return arquivo_saida
 
 # Dicionarios... (podem ficar aqui embaixo se quiser, mas o site puxa do site_sofia agora)
