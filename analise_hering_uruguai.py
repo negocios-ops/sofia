@@ -18,10 +18,8 @@ def iniciar_navegador():
     servico = Service(ChromeDriverManager().install())
     return webdriver.Chrome(service=servico, options=opcoes)
 
-# 🟢 NOVIDADE: Adicionamos o log_callback aqui!
 def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titulo_categoria, log_callback=None):
     
-    # 🟢 NOVIDADE: O Walkie-Talkie da Hering
     def relatar(mensagem):
         print(mensagem)
         if log_callback:
@@ -102,9 +100,10 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
     altura_max_img = (altura_pagina - 3 * margem) // 2
     paginas_pdf = []
     
+    # 🎀 CARREGANDO E AUMENTANDO A LOGO 
     try:
         logo_img = Image.open("logo.png").convert("RGBA")
-        logo_img.thumbnail((150, 60), Image.Resampling.LANCZOS)
+        logo_img.thumbnail((200, 80), Image.Resampling.LANCZOS)
     except Exception:
         logo_img = None
 
@@ -141,9 +140,10 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
     data_hoje_capa = datetime.now().strftime("%d/%m/%Y")
     draw.text((600, 1550), f"Gerado em: {data_hoje_capa}", fill="gray", font=fonte_data, anchor="mm")
     
-    draw.text((820, 1650), "Conteúdo gerado por:", fill="gray", font=fonte_rodape)
+    # 🎀 CARIMBO MOVIDO PARA A DIREITA (Capa)
+    draw.text((920, 1650), "Conteúdo gerado por:", fill="gray", font=fonte_rodape)
     if logo_img:
-        capa.paste(logo_img, (1030, 1630), logo_img) 
+        capa.paste(logo_img, (1130, 1630), logo_img) 
     
     paginas_pdf.append(capa)
     
@@ -159,9 +159,10 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
             pos_y = margem + linha * (altura_max_img + margem)
             pagina.paste(img, (pos_x, pos_y))
             
-        draw_pagina.text((820, 1650), "Conteúdo gerado por:", fill="gray", font=fonte_rodape)
+        # 🎀 CARIMBO MOVIDO PARA A DIREITA (Páginas de Produtos)
+        draw_pagina.text((920, 1650), "Conteúdo gerado por:", fill="gray", font=fonte_rodape)
         if logo_img:
-            pagina.paste(logo_img, (1030, 1630), logo_img)
+            pagina.paste(logo_img, (1130, 1630), logo_img)
             
         paginas_pdf.append(pagina)
         
@@ -170,11 +171,9 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
         relatar(f"✅ PDF finalizado com sucesso!")
         return arquivo_saida
 
-# Mantemos a função alias com o log_callback para o site usar sem problemas
+# Função que o site chama
 def extrair_produtos_hering(navegador, url, arquivo_saida, titulo_genero, titulo_categoria, log_callback=None):
     return extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titulo_categoria, log_callback)
-
-# (Os dicionários de URL podem continuar aqui embaixo se quiser)
 
 urls_para_processar = {
     "Masculino": {
@@ -233,7 +232,3 @@ urls_para_processar = {
         "Jeans": "https://www.hering.com.uy/indumentaria-nino/indumentaria/jeans"
     }
 }
-
-# Essa função foi mantida apenas caso você queira rodar o arquivo sozinho por algum motivo!
-def extrair_produtos_hering(navegador, url, arquivo_saida, titulo_genero, titulo_categoria):
-    return extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titulo_categoria)
