@@ -1,0 +1,239 @@
+import io
+import time
+import re
+import os
+from datetime import datetime
+from PIL import Image, ImageDraw, ImageFont
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+
+def iniciar_navegador():
+    opcoes = webdriver.ChromeOptions()
+    opcoes.add_argument('--headless') 
+    opcoes.add_argument('--window-size=1920,1080')
+    opcoes.add_argument('--disable-notifications') 
+    
+    servico = Service(ChromeDriverManager().install())
+    return webdriver.Chrome(service=servico, options=opcoes)
+
+# 🟢 NOVIDADE: Adicionamos o log_callback aqui!
+def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titulo_categoria, log_callback=None):
+    
+    # 🟢 NOVIDADE: O Walkie-Talkie da Hering
+    def relatar(mensagem):
+        print(mensagem)
+        if log_callback:
+            log_callback(mensagem)
+
+    relatar(f"Acessando URL de {titulo_categoria}...")
+    navegador.get(url)
+    time.sleep(4) 
+    
+    relatar(f"Rolando a página para carregar as imagens...")
+    for passo in range(20):
+        navegador.execute_script("window.scrollBy(0, 700);")
+        time.sleep(1)
+        
+    elementos_encontrados = navegador.find_elements(By.XPATH, "//a[.//img]")
+    produtos_capturados = []
+    
+    relatar(f"Lendo preços e capturando imagens...")
+    for i, elemento in enumerate(elementos_encontrados):
+        try:
+            tamanho = elemento.size
+            if tamanho['height'] < 150 or tamanho['width'] < 150:
+                continue
+            
+            elemento_alvo = elemento
+            valor_preco = float('inf')
+            
+            for nivel in range(5):
+                try:
+                    pai = elemento_alvo.find_element(By.XPATH, "..")
+                    texto_visivel = pai.text
+                    if "$" in texto_visivel or "UYU" in texto_visivel:
+                        elemento_alvo = pai
+                        matches = re.findall(r'(?:\$|UYU)\s*([\d\.]+)', texto_visivel)
+                        if matches:
+                            precos_encontrados = [float(m.replace('.', '')) for m in matches]
+                            valor_preco = max(precos_encontrados)
+                        break
+                except Exception: pass
+                
+            navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", elemento_alvo)
+            time.sleep(0.5)
+            
+            imagem = Image.open(io.BytesIO(elemento_alvo.screenshot_as_png))
+            if imagem.mode != 'RGB': imagem = imagem.convert('RGB')
+                
+            produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
+        except Exception: pass
+            
+    if not produtos_capturados:
+        relatar(f"❌ Nenhum produto válido capturado para {titulo_categoria}.")
+        return
+
+    produtos_ordenados = sorted(produtos_capturados, key=lambda p: p['preco'])
+    imagens_ordenadas = [p['imagem'] for p in produtos_ordenados]
+
+    relatar(f"Analisando {len(produtos_capturados)} produtos e montando o PDF...")
+    
+    faixas = [(0, 490, "Até $ 490")]
+    for limite in range(490, 1990, 100):
+        faixas.append((limite + 0.01, limite + 100, f"De $ {limite + 1} a $ {limite + 100}"))
+    faixas.append((1990.01, float('inf'), "Acima de $ 1.990"))
+
+    contagem_precos = {f[2]: 0 for f in faixas}
+    total_validos = 0
+    
+    for p in produtos_ordenados:
+        if p['preco'] != float('inf'):
+            for min_p, max_p, label in faixas:
+                if min_p <= p['preco'] <= max_p:
+                    contagem_precos[label] += 1
+                    total_validos += 1
+                    break
+
+    largura_pagina, altura_pagina = 1200, 1700
+    margem = 50
+    largura_max_img = (largura_pagina - 3 * margem) // 2
+    altura_max_img = (altura_pagina - 3 * margem) // 2
+    paginas_pdf = []
+    
+    try:
+        logo_img = Image.open("logo.png").convert("RGBA")
+        logo_img.thumbnail((150, 60), Image.Resampling.LANCZOS)
+    except Exception:
+        logo_img = None
+
+    capa = Image.new('RGB', (largura_pagina, altura_pagina), 'white')
+    draw = ImageDraw.Draw(capa)
+    
+    try:
+        fonte_titulo = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 85)
+        fonte_sub = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 55)
+        fonte_titulo_tab = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 45)
+        fonte_tabela = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 35)
+        fonte_data = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 40)
+        fonte_rodape = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 25)
+    except IOError:
+        fonte_titulo = fonte_sub = fonte_titulo_tab = fonte_tabela = fonte_data = fonte_rodape = ImageFont.load_default()
+
+    draw.text((600, 250), "Análise de Mercado - Hering", fill="black", font=fonte_titulo, anchor="mm")
+    draw.text((600, 360), f"Gênero: {titulo_genero}", fill="dimgray", font=fonte_sub, anchor="mm")
+    draw.text((600, 440), f"Categoria: {titulo_categoria}", fill="dimgray", font=fonte_sub, anchor="mm")
+    
+    y_tabela = 580
+    draw.text((600, y_tabela), "Resumo de Faixas de Preço", fill="black", font=fonte_titulo_tab, anchor="mm")
+    y_tabela += 70
+    
+    for label, count in contagem_precos.items():
+        palavra = "produtos" if count != 1 else "produto"
+        texto_linha = f"{label} ........................ {count} {palavra}"
+        draw.text((600, y_tabela), texto_linha, fill="#404040", font=fonte_tabela, anchor="mm")
+        y_tabela += 45
+        
+    y_tabela += 30
+    draw.text((600, y_tabela), f"TOTAL: {total_validos} produtos mapeados", fill="black", font=fonte_titulo_tab, anchor="mm")
+    
+    data_hoje_capa = datetime.now().strftime("%d/%m/%Y")
+    draw.text((600, 1550), f"Gerado em: {data_hoje_capa}", fill="gray", font=fonte_data, anchor="mm")
+    
+    draw.text((820, 1650), "Conteúdo gerado por:", fill="gray", font=fonte_rodape)
+    if logo_img:
+        capa.paste(logo_img, (1030, 1630), logo_img) 
+    
+    paginas_pdf.append(capa)
+    
+    for i in range(0, len(imagens_ordenadas), 4):
+        lote = imagens_ordenadas[i:i+4]
+        pagina = Image.new('RGB', (largura_pagina, altura_pagina), 'white')
+        draw_pagina = ImageDraw.Draw(pagina)
+        
+        for j, img in enumerate(lote):
+            img.thumbnail((largura_max_img, altura_max_img), Image.Resampling.LANCZOS)
+            linha, coluna = j // 2, j % 2
+            pos_x = margem + coluna * (largura_max_img + margem)
+            pos_y = margem + linha * (altura_max_img + margem)
+            pagina.paste(img, (pos_x, pos_y))
+            
+        draw_pagina.text((820, 1650), "Conteúdo gerado por:", fill="gray", font=fonte_rodape)
+        if logo_img:
+            pagina.paste(logo_img, (1030, 1630), logo_img)
+            
+        paginas_pdf.append(pagina)
+        
+    if paginas_pdf:
+        paginas_pdf[0].save(arquivo_saida, save_all=True, append_images=paginas_pdf[1:])
+        relatar(f"✅ PDF finalizado com sucesso!")
+        return arquivo_saida
+
+# Mantemos a função alias com o log_callback para o site usar sem problemas
+def extrair_produtos_hering(navegador, url, arquivo_saida, titulo_genero, titulo_categoria, log_callback=None):
+    return extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titulo_categoria, log_callback)
+
+# (Os dicionários de URL podem continuar aqui embaixo se quiser)
+
+urls_para_processar = {
+    "Masculino": {
+        "Bermudas": "https://www.hering.com.uy/indumentaria-masculina/indumentaria/bermudas",
+        "Blusoes": "https://www.hering.com.uy/indumentaria-masculina/indumentaria/buzos",
+        "Camisas": "https://www.hering.com.uy/indumentaria-masculina/indumentaria/camisas",
+        "Camisetas": "https://www.hering.com.uy/indumentaria-masculina/indumentaria/camisetas",
+        "Casacos": "https://www.hering.com.uy/indumentaria-masculina/indumentaria/campera",
+        "Regatas": "https://www.hering.com.uy/indumentaria-masculina/indumentaria/musculosas",
+        "Calcas": "https://www.hering.com.uy/indumentaria-masculina/indumentaria/pantalones",
+        "Pijamas": "https://www.hering.com.uy/indumentaria-masculina/indumentaria/pijamas",
+        "Polos": "https://www.hering.com.uy/indumentaria-masculina/indumentaria/polo",
+        "Jeans": "https://www.hering.com.uy/indumentaria-masculina/indumentaria/jeans"
+    },
+    "Feminino": {
+        "Bermudas": "https://www.hering.com.uy/indumentaria-femenina/indumentaria/bermudas",
+        "Blusas": "https://www.hering.com.uy/indumentaria-femenina/indumentaria/blusas",
+        "Blusoes": "https://www.hering.com.uy/indumentaria-femenina/indumentaria/buzos",
+        "Camisas": "https://www.hering.com.uy/indumentaria-femenina/indumentaria/camisas",
+        "Camisetas": "https://www.hering.com.uy/indumentaria-femenina/indumentaria/camisetas",
+        "Casacos": "https://www.hering.com.uy/indumentaria-femenina/indumentaria/campera",
+        "Regatas": "https://www.hering.com.uy/indumentaria-femenina/indumentaria/musculosas",
+        "Calcas": "https://www.hering.com.uy/indumentaria-femenina/indumentaria/pantalones",
+        "Pijamas": "https://www.hering.com.uy/indumentaria-femenina/indumentaria/pijamas",
+        "Shorts": "https://www.hering.com.uy/indumentaria-femenina/indumentaria/shorts",
+        "Vestidos": "https://www.hering.com.uy/indumentaria-femenina/indumentaria/vestido",
+        "Tops": "https://www.hering.com.uy/indumentaria-femenina/indumentaria/top",
+        "Jeans": "https://www.hering.com.uy/indumentaria-femenina/indumentaria/jeans"
+    },
+    "Menina": {
+        "Bermudas": "https://www.hering.com.uy/indumentaria-nina/indumentaria/bermudas",
+        "Blusas": "https://www.hering.com.uy/indumentaria-nina/indumentaria/blusas",
+        "Blusoes": "https://www.hering.com.uy/indumentaria-nina/indumentaria/buzos",
+        "Camisetas": "https://www.hering.com.uy/indumentaria-nina/indumentaria/camisetas",
+        "Casacos": "https://www.hering.com.uy/indumentaria-nina/indumentaria/campera",
+        "Conjuntos": "https://www.hering.com.uy/indumentaria-nina/indumentaria/conjunto",
+        "Regatas": "https://www.hering.com.uy/indumentaria-nina/indumentaria/musculosas",
+        "Calcas": "https://www.hering.com.uy/indumentaria-nina/indumentaria/pantalones",
+        "Pijamas": "https://www.hering.com.uy/indumentaria-nina/indumentaria/pijamas",
+        "Shorts": "https://www.hering.com.uy/indumentaria-nina/indumentaria/shorts",
+        "Vestidos": "https://www.hering.com.uy/indumentaria-nina/indumentaria/vestido",
+        "Jeans": "https://www.hering.com.uy/indumentaria-nina/indumentaria/jeans"
+    },
+    "Menino": {
+        "Bermudas": "https://www.hering.com.uy/indumentaria-nino/indumentaria/bermudas",
+        "Blusoes": "https://www.hering.com.uy/indumentaria-nino/indumentaria/buzos",
+        "Camisas": "https://www.hering.com.uy/indumentaria-nino/indumentaria/camisas",
+        "Camisetas": "https://www.hering.com.uy/indumentaria-nino/indumentaria/camisetas",
+        "Casacos": "https://www.hering.com.uy/indumentaria-nino/indumentaria/campera",
+        "Conjuntos": "https://www.hering.com.uy/indumentaria-nino/indumentaria/conjunto",
+        "Regatas": "https://www.hering.com.uy/indumentaria-nino/indumentaria/musculosas",
+        "Calcas": "https://www.hering.com.uy/indumentaria-nino/indumentaria/pantalones",
+        "Pijamas": "https://www.hering.com.uy/indumentaria-nino/indumentaria/pijamas",
+        "Polos": "https://www.hering.com.uy/indumentaria-nino/indumentaria/polo",
+        "Shorts": "https://www.hering.com.uy/indumentaria-nino/indumentaria/shorts",
+        "Jeans": "https://www.hering.com.uy/indumentaria-nino/indumentaria/jeans"
+    }
+}
+
+# Essa função foi mantida apenas caso você queira rodar o arquivo sozinho por algum motivo!
+def extrair_produtos_hering(navegador, url, arquivo_saida, titulo_genero, titulo_categoria):
+    return extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titulo_categoria)
