@@ -3,16 +3,36 @@ import time
 import os
 import zipfile
 
-# --- IMPORTANDO OS SEUS ROBÔS DE VERDADE ---
-# O site vai "puxar" as funções de dentro dos seus scripts
 try:
     import analise_renner_uruguai as renner
     import analise_hering_uruguai as hering
 except ImportError:
-    st.warning("⚠️ Arquivos dos robôs não encontrados na mesma pasta. O site rodará em modo simulação.")
+    st.warning("⚠️ Arquivos dos robôs não encontrados na mesma pasta.")
 
 st.set_page_config(page_title="Sofia - Dashboard", page_icon="🎀", layout="centered")
 
+# --- 🔒 SISTEMA DE SEGURANÇA (NOVIDADE) ---
+SENHA_OFICIAL = "tropico2026"  # Pode trocar pela senha que você quiser!
+
+# Cria a "memória" do site para lembrar se a pessoa já digitou a senha
+if "acesso_liberado" not in st.session_state:
+    st.session_state.acesso_liberado = False
+
+# Se a pessoa ainda não tem acesso, mostra a tela de bloqueio
+if not st.session_state.acesso_liberado:
+    st.title("🔒 Acesso Restrito")
+    st.write("Bem-vindo(a)! Por favor, insira a senha da equipe para acessar a Sofia.")
+    
+    senha_digitada = st.text_input("Senha de Acesso:", type="password")
+    
+    if st.button("Entrar ⏩", use_container_width=True):
+        if senha_digitada == SENHA_OFICIAL:
+            st.session_state.acesso_liberado = True
+            st.rerun()  # Recarrega a página revelando o site real
+        else:
+            st.error("❌ Senha incorreta. Tente novamente.")
+            
+    st.stop()  # Trava o site aqui! O código lá para baixo nem roda se não tiver a senha.
 # --- DICIONÁRIO DE URLs DA BIA ---
 urls_renner = {
     "Masculino": {
@@ -260,3 +280,4 @@ if st.button("⏩️ Iniciar Robô Sofia", use_container_width=True):
             mime=mime_tipo,
             use_container_width=True
         )
+
