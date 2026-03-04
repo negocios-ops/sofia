@@ -12,7 +12,7 @@ except ImportError:
 st.set_page_config(page_title="Sofia - Dashboard", page_icon="🎀", layout="centered")
 
 # --- 🔒 SISTEMA DE SEGURANÇA (NOVIDADE) ---
-SENHA_OFICIAL = "tropico2026"  # Pode trocar pela senha que você quiser!
+SENHA_OFICIAL = "trp2018"  # Pode trocar pela senha que você quiser!
 
 # Cria a "memória" do site para lembrar se a pessoa já digitou a senha
 if "acesso_liberado" not in st.session_state:
