@@ -122,15 +122,25 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
     capa = Image.new('RGB', (largura_pagina, altura_pagina), 'white')
     draw = ImageDraw.Draw(capa)
     
-    try:
-        fonte_titulo = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 85)
-        fonte_sub = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 55)
-        fonte_titulo_tab = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 45)
-        fonte_tabela = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 35)
-        fonte_data = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 40)
-        fonte_rodape = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 25)
-    except IOError:
-        fonte_titulo = fonte_sub = fonte_titulo_tab = fonte_tabela = fonte_data = fonte_rodape = ImageFont.load_default()
+   # 🎀 BUSCADOR DE FONTES INTELIGENTE (Funciona no Mac e na Nuvem)
+    def obter_fonte(tamanho, negrito=False):
+        caminhos = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if negrito else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if negrito else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/System/Library/Fonts/Supplemental/Arial Bold.ttf" if negrito else "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "arial.ttf"
+        ]
+        for caminho in caminhos:
+            try: return ImageFont.truetype(caminho, tamanho)
+            except: pass
+        return ImageFont.load_default()
+
+    fonte_titulo = obter_fonte(85, negrito=True)
+    fonte_sub = obter_fonte(55)
+    fonte_titulo_tab = obter_fonte(45, negrito=True)
+    fonte_tabela = obter_fonte(35)
+    fonte_data = obter_fonte(40)
+    fonte_rodape = obter_fonte(25)
 
     draw.text((600, 250), "Análise de Mercado - Hering", fill="black", font=fonte_titulo, anchor="mm")
     draw.text((600, 360), f"Gênero: {titulo_genero}", fill="dimgray", font=fonte_sub, anchor="mm")
