@@ -15,14 +15,22 @@ def iniciar_navegador():
     opcoes.add_argument('--headless') 
     opcoes.add_argument('--window-size=1920,1080')
     opcoes.add_argument('--disable-notifications') 
+    
+    # 🟢 ESSENCIAIS PARA A NUVEM (Evita que o Chrome trave ou falhe)
+    opcoes.add_argument('--no-sandbox')
+    opcoes.add_argument('--disable-dev-shm-usage')
     opcoes.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-    servico = Service(ChromeDriverManager().install())
+    
+    # 🟢 O TRUQUE CAMALEÃO: Descobre se está no Mac ou na Nuvem
+    if os.path.exists('/usr/bin/chromedriver'):
+        servico = Service('/usr/bin/chromedriver')
+    else:
+        servico = Service(ChromeDriverManager().install())
+        
     return webdriver.Chrome(service=servico, options=opcoes)
 
-# 🟢 NOVIDADE: Adicionamos o "log_callback=None" aqui na função
 def extrair_produtos_renner(navegador, url_base, arquivo_saida, titulo_genero, titulo_categoria, log_callback=None):
     
-    # Função interna para mandar mensagem pro Terminal e pro Site ao mesmo tempo
     def relatar(mensagem):
         print(mensagem)
         if log_callback:
@@ -87,16 +95,15 @@ def extrair_produtos_renner(navegador, url_base, arquivo_saida, titulo_genero, t
         relatar("Nenhum produto encontrado.")
         return None
 
-# --- MONTAGEM DO PDF ---
+    # --- MONTAGEM DO PDF ---
     relatar(f"Montando PDF de {titulo_categoria} com {len(produtos_capturados)} itens...")
     largura, altura = 1240, 1754
     paginas_pdf = []
     data_geracao = datetime.now().strftime("%d/%m/%Y")
     
-    # 🎀 CARREGANDO E AUMENTANDO A LOGO (Alteração aqui)
+    # 🎀 CARREGANDO E AUMENTANDO A LOGO 
     try:
         logo_img = Image.open("logo.png").convert("RGBA")
-        # Aumentei o tamanho máximo da logo para (200, 80)
         logo_img.thumbnail((200, 80), Image.Resampling.LANCZOS)
     except Exception:
         logo_img = None
@@ -107,7 +114,7 @@ def extrair_produtos_renner(navegador, url_base, arquivo_saida, titulo_genero, t
         f_tit = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 55)
         f_sub = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 45)
         f_txt = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 30)
-        f_rodape = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 25) # Fonte do carimbo
+        f_rodape = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 25) 
     except: 
         f_tit = f_sub = f_txt = f_rodape = ImageFont.load_default()
 
@@ -133,11 +140,9 @@ def extrair_produtos_renner(navegador, url_base, arquivo_saida, titulo_genero, t
     draw.text((620, y_pos + 100), f"TOTAL: {len(produtos_capturados)} produtos únicos mapeados", fill="black", font=f_tit, anchor="mm")
     draw.text((620, altura - 100), f"Gerado em: {data_geracao}", fill="gray", font=f_txt, anchor="mm")
     
-    # 🎀 CARIMBANDO A CAPA (Alteração nas coordenadas aqui)
-    # Movi o texto de 850 para 950 na coordenada X para ir mais para a direita
+    # 🎀 CARIMBO MOVIDO PARA A DIREITA (Capa)
     draw.text((950, 1680), "Conteúdo gerado por:", fill="gray", font=f_rodape)
     if logo_img: 
-        # Movi a logo de 1070 para 1170 na coordenada X para alinhar
         capa.paste(logo_img, (1170, 1660), logo_img)
 
     paginas_pdf.append(capa)
@@ -157,8 +162,7 @@ def extrair_produtos_renner(navegador, url_base, arquivo_saida, titulo_genero, t
             x, y = 20 + ((j % 3) * 400), 30 + ((j // 3) * 560) 
             pagina.paste(img_copy, (x, y))
             
-        # 🎀 CARIMBANDO AS PÁGINAS DA GRADE (Alteração nas coordenadas aqui)
-        # Apliquei o mesmo deslocamento de 100px para a direita
+        # 🎀 CARIMBO MOVIDO PARA A DIREITA (Páginas de Produtos)
         d_pagina.text((950, 1680), "Conteúdo gerado por:", fill="gray", font=f_rodape)
         if logo_img: 
             pagina.paste(logo_img, (1170, 1660), logo_img)
@@ -167,8 +171,6 @@ def extrair_produtos_renner(navegador, url_base, arquivo_saida, titulo_genero, t
     paginas_pdf[0].save(arquivo_saida, save_all=True, append_images=paginas_pdf[1:])
     relatar(f"PDF de {titulo_categoria} pronto!")
     return arquivo_saida
-
-# Dicionarios... (podem ficar aqui embaixo se quiser, mas o site puxa do site_sofia agora)
 
 urls_renner = {
     "Masculino": {
@@ -220,7 +222,6 @@ urls_renner = {
     }
 }
 
-# Mantido apenas se quiser rodar direto
 def gerar_relatorios_renner(filtro_genero=None, filtro_categoria=None):
     pasta_downloads = os.path.expanduser("~/Downloads")
     data_arquivo = datetime.now().strftime("%Y.%m.%d")
