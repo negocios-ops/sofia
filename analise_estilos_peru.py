@@ -66,9 +66,14 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
                     
                 matches = re.findall(r'S/\.?\s*([\d\.,]+)', texto_item)
                 if matches:
-                    # Limpa o valor para o padrão de leitura em Python
-                    valor_str = matches[0].replace(',', '') if matches[0].count(',') > 1 or (',' in matches[0] and '.' in matches[0]) else matches[0].replace(',', '.')
-                    valor_preco = float(valor_str)
+                    precos_convertidos = []
+                    for m in matches:
+                        # Limpa o valor para o padrão de leitura em Python
+                        valor_str = m.replace(',', '') if m.count(',') > 1 or (',' in m and '.' in m) else m.replace(',', '.')
+                        precos_convertidos.append(float(valor_str))
+                    
+                    # 🎀 PULO DO GATO: Sempre pega o maior preço (Preço original riscado)
+                    valor_preco = max(precos_convertidos)
                     
                     links_vistos.add(link_produto)
                     
@@ -132,14 +137,11 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
     draw.text((page_center_x, 290), f"Categoria: {titulo_categoria}", fill="gray", font=f_sub, anchor="mm")
     draw.text((page_center_x, 400), "Resumo de Faixas de Preço", fill="black", font=f_sub, anchor="mm")
 
-    # Faixas de preço adaptadas para a moeda SOLES (S/)
-    faixas = [
-        (0, 49.99, "Até S/ 49"),
-        (50, 99.99, "De S/ 50 a S/ 99"),
-        (100, 149.99, "De S/ 100 a S/ 149"),
-        (150, 199.99, "De S/ 150 a S/ 199"),
-        (200, float('inf'), "Acima de S/ 200")
-    ]
+    # 🎀 Faixas de preço adaptadas de 20 em 20 SOLES
+    faixas = [(0, 20.99, "Até S/ 20")]
+    for limite in range(20, 300, 20):
+        faixas.append((limite + 0.01, limite + 20.99, f"De S/ {limite + 1} a S/ {limite + 20}"))
+    faixas.append((300.01, float('inf'), "Acima de S/ 300"))
     
     contagem_precos = {f[2]: 0 for f in faixas}
     
@@ -157,7 +159,7 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
     
     draw.text((page_center_x, y_pos + 120), f"TOTAL: {len(produtos_capturados)} produtos únicos mapeados", fill="black", font=f_tit, anchor="mm")
     
-    # Rodapé da Capa (À esquerda, igual Hering/Renner)
+    # Rodapé da Capa (À esquerda)
     draw.text((page_center_x, altura - 150), f"Gerado em: {data_geracao}", fill="gray", font=f_txt, anchor="mm")
     draw.text((100, altura - 110), "Conteúdo gerado por:", fill="gray", font=f_rodape)
     if logo_img:
