@@ -125,7 +125,8 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
 
     try:
         logo_img = Image.open("logo.png").convert("RGBA")
-        logo_img.thumbnail((150, 60), Image.Resampling.LANCZOS)
+        # 🎀 LOGO AUMENTADA: De (150, 60) para (250, 100)
+        logo_img.thumbnail((250, 100), Image.Resampling.LANCZOS)
     except Exception:
         logo_img = None
 
@@ -161,9 +162,13 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
     
     # Rodapé da Capa (À esquerda)
     draw.text((page_center_x, altura - 150), f"Gerado em: {data_geracao}", fill="gray", font=f_txt, anchor="mm")
-    draw.text((100, altura - 110), "Conteúdo gerado por:", fill="gray", font=f_rodape)
+    
+    # 🎀 TEXTO REMOVIDO: draw.text((100, altura - 110), "Conteúdo gerado por:", ...)
+    
     if logo_img:
-        capa.paste(logo_img, (100, altura - 80), logo_img)
+        # 🎀 POSIÇÃO AJUSTADA: Alinhada à esquerda, com margem inferior de 50px
+        logo_w, logo_h = logo_img.size
+        capa.paste(logo_img, (100, altura - logo_h - 50), logo_img)
 
     paginas_pdf.append(capa)
 
@@ -183,9 +188,12 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
             pagina.paste(img_copy, (x, y))
             
         # Rodapé das Páginas (À Esquerda)
-        d_pagina.text((100, altura - 110), "Conteúdo gerado por:", fill="gray", font=f_rodape)
+        # 🎀 TEXTO REMOVIDO: d_pagina.text((100, altura - 110), "Conteúdo gerado por:", ...)
+        
         if logo_img: 
-            pagina.paste(logo_img, (100, altura - 80), logo_img)
+            # 🎀 POSIÇÃO AJUSTADA NAS PÁGINAS TAMBÉM
+            logo_w, logo_h = logo_img.size
+            pagina.paste(logo_img, (100, altura - logo_h - 50), logo_img)
             
         paginas_pdf.append(pagina)
 
