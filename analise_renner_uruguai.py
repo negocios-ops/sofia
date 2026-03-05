@@ -95,23 +95,16 @@ def extrair_produtos_renner(navegador, url_base, arquivo_saida, titulo_genero, t
         relatar("Nenhum produto encontrado.")
         return None
 
-    # --- MONTAGEM DO PDF ---
-    relatar(f"Montando PDF de {titulo_categoria} com {len(produtos_capturados)} itens...")
-    largura, altura = 1240, 1754
+# --- MONTAGEM DO PDF (AJUSTADO: Layout Limpo e Rodapé Centralizado) ---
+    relatar(f"Montando PDF Profissional de {titulo_categoria}...")
+    
+    # Resolução A4 padrão em 150 DPI (aproximadamente)
+    largura, altura = 1240, 1754 
+    page_center_x = largura / 2
     paginas_pdf = []
     data_geracao = datetime.now().strftime("%d/%m/%Y")
     
-    # 🎀 CARREGANDO E AUMENTANDO A LOGO 
-    try:
-        logo_img = Image.open("logo.png").convert("RGBA")
-        logo_img.thumbnail((200, 80), Image.Resampling.LANCZOS)
-    except Exception:
-        logo_img = None
-
-    capa = Image.new('RGB', (largura, altura), 'white')
-    draw = ImageDraw.Draw(capa)
-
-    # 🎀 BUSCADOR DE FONTES INTELIGENTE (Funciona no Mac e na Nuvem)
+    # 🎀 BUSCADOR DE FONTES INTELIGENTE (Puxando DejaVu Sans do Linux)
     def obter_fonte(tamanho, negrito=False):
         caminhos = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if negrito else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -124,40 +117,66 @@ def extrair_produtos_renner(navegador, url_base, arquivo_saida, titulo_genero, t
             except: pass
         return ImageFont.load_default()
 
-    f_tit = obter_fonte(55, negrito=True)
-    f_sub = obter_fonte(45)
-    f_txt = obter_fonte(30)
-    f_rodape = obter_fonte(25)
+    # 🎀 AJUSTE FINO DE TAMANHOS DE FONTE (Profissional)
+    f_tit = obter_fonte(38, negrito=True) # Título principal (Reduzido de 55)
+    f_sub = obter_fonte(28)              # Subtítulos (Reduzido de 45)
+    f_txt = obter_fonte(20)              # Faixas de preço (Reduzido de 30)
+    f_rodape = obter_fonte(16)           # Rodapé (Reduzido de 25)
 
-    draw.text((620, 150), "Análise de Mercado - Renner Uruguay", fill="black", font=f_tit, anchor="mm")
-    draw.text((620, 230), f"Gênero: {titulo_genero}", fill="gray", font=f_sub, anchor="mm")
-    draw.text((620, 290), f"Categoria: {titulo_categoria}", fill="gray", font=f_sub, anchor="mm")
-    draw.text((620, 420), "Resumo de Faixas de Preço", fill="black", font=f_sub, anchor="mm")
+    # 🎀 AJUSTE DA LOGO (Não precisa ser gigante)
+    try:
+        logo_img = Image.open("logo.png").convert("RGBA")
+        logo_img.thumbnail((150, 60), Image.Resampling.LANCZOS) # Tamanho proporcional
+    except Exception:
+        logo_img = None
 
-    y_pos = 500
+    capa = Image.new('RGB', (largura, altura), 'white')
+    draw = ImageDraw.Draw(capa)
+    
+    # Cabeçalho Centralizado
+    draw.text((page_center_x, 150), "Análise de Mercado - Renner Uruguay", fill="black", font=f_tit, anchor="mm")
+    draw.text((page_center_x, 230), f"Gênero: {titulo_genero}", fill="gray", font=f_sub, anchor="mm")
+    draw.text((page_center_x, 290), f"Categoria: {titulo_categoria}", fill="gray", font=f_sub, anchor="mm")
+    draw.text((page_center_x, 400), "Resumo de Faixas de Preço", fill="black", font=f_sub, anchor="mm")
+
+    # 🎀 FAIXAS DE PREÇO AGORA CENTRALIZADAS (horizontalmente)
+    y_pos = 480
     precos = [p['preco'] for p in produtos_capturados]
+    
     qtd_base = len([p for p in precos if p <= 490])
-    draw.text((350, y_pos), f"Até UYU 490 ........................... {qtd_base} produtos", fill="black", font=f_txt)
-    y_pos += 45
+    draw.text((page_center_x, y_pos), f"Até UYU 490 ........................... {qtd_base} produtos", fill="black", font=f_txt, anchor="mm")
+    y_pos += 30 # Passo vertical menor
 
     for i in range(491, 1991, 100):
         fim = i + 99
         qtd = len([p for p in precos if i <= p <= fim])
-        draw.text((350, y_pos), f"De UYU {i} a UYU {fim} ................. {qtd} produtos", fill="black", font=f_txt)
-        y_pos += 45
+        draw.text((page_center_x, y_pos), f"De UYU {i} a UYU {fim} ................. {qtd} produtos", fill="black", font=f_txt, anchor="mm")
+        y_pos += 30
     
     qtd_final = len([p for p in precos if p > 1990])
-    draw.text((350, y_pos), f"Acima de UYU 1.990 .................... {qtd_final} produtos", fill="black", font=f_txt)
-    draw.text((620, y_pos + 100), f"TOTAL: {len(produtos_capturados)} produtos únicos mapeados", fill="black", font=f_tit, anchor="mm")
-    draw.text((620, altura - 100), f"Gerado em: {data_geracao}", fill="gray", font=f_txt, anchor="mm")
+    draw.text((page_center_x, y_pos), f"Acima de UYU 1.990 .................... {qtd_final} produtos", fill="black", font=f_txt, anchor="mm")
     
-    # 🎀 CARIMBO MOVIDO PARA A DIREITA (Capa)
-    draw.text((950, 1680), "Conteúdo gerado por:", fill="gray", font=f_rodape)
-    if logo_img: 
-        capa.paste(logo_img, (1170, 1660), logo_img)
+    # Total centralizado maior
+    draw.text((page_center_x, y_pos + 120), f"TOTAL: {len(produtos_capturados)} produtos únicos mapeados", fill="black", font=f_tit, anchor="mm")
+    
+    # 🎀 NOVA POSIÇÃO E LAYOUT DO RODAPÉ CENTRALIZADO (Página 1)
+    
+    # 1. Data centralizada mais abaixo
+    draw.text((page_center_x, altura - 150), f"Gerado em: {data_geracao}", fill="gray", font=f_txt, anchor="mm")
+    
+    # 2. "Conteúdo gerado por:" centralizado logo abaixo da data
+    draw.text((page_center_x, altura - 100), "Conteúdo gerado por:", fill="gray", font=f_rodape, anchor="mm")
+    
+    # 3. Logo centralizada logo abaixo do texto de rodapé
+    if logo_img:
+        logo_w, logo_h = logo_img.size
+        # Cálculo para colar a logo centralizada no eixo X
+        paste_x = int((largura - logo_w) / 2)
+        capa.paste(logo_img, (paste_x, altura - 80), logo_img)
 
     paginas_pdf.append(capa)
 
+    # Ordenação e Grade de Produtos
     ordenados = sorted(produtos_capturados, key=lambda p: p['preco'])
     for i in range(0, len(ordenados), 9):
         lote = ordenados[i:i+9]
@@ -173,12 +192,20 @@ def extrair_produtos_renner(navegador, url_base, arquivo_saida, titulo_genero, t
             x, y = 20 + ((j % 3) * 400), 30 + ((j // 3) * 560) 
             pagina.paste(img_copy, (x, y))
             
-        # 🎀 CARIMBO MOVIDO PARA A DIREITA (Páginas de Produtos)
-        d_pagina.text((950, 1680), "Conteúdo gerado por:", fill="gray", font=f_rodape)
-        if logo_img: 
-            pagina.paste(logo_img, (1170, 1660), logo_img)
+        # 🎀 APLICANDO O MESMO RODAPÉ CENTRALIZADO NAS PÁGINAS DA GRADE
+        
+        # 1. "Conteúdo gerado por:" centralizado
+        d_pagina.text((page_center_x, altura - 100), "Conteúdo gerado por:", fill="gray", font=f_rodape, anchor="mm")
+        
+        # 2. Logo centralizada abaixo do texto
+        if logo_img:
+            # Re-calculando apenas para garantir clareza no escopo
+            logo_w, logo_h = logo_img.size
+            paste_x = int((largura - logo_w) / 2)
+            pagina.paste(logo_img, (paste_x, altura - 80), logo_img)
+            
         paginas_pdf.append(pagina)
 
     paginas_pdf[0].save(arquivo_saida, save_all=True, append_images=paginas_pdf[1:])
-    relatar(f"PDF de {titulo_categoria} pronto!")
+    relatar(f"✅ PDF finalizado com layout profissional!")
     return arquivo_saida
