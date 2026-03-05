@@ -4,9 +4,9 @@ import os
 import zipfile
 
 
-    import analise_renner_uruguai as renner
-    import analise_hering_uruguai as hering
-    import analise_estilos_peru as estilos
+import analise_renner_uruguai as renner
+import analise_hering_uruguai as hering
+import analise_estilos_peru as estilos
 
 st.set_page_config(page_title="Sofia - Dashboard", page_icon="🎀", layout="centered")
 
