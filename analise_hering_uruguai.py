@@ -129,12 +129,12 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
         return ImageFont.load_default()
 
     # 🎀 AJUSTE FINO DE TAMANHOS DE FONTE (Profissional)
-    fonte_titulo = obter_fonte(38, negrito=True) 
-    fonte_sub = obter_fonte(28)              
-    fonte_titulo_tab = obter_fonte(28, negrito=True)
-    fonte_tabela = obter_fonte(20)              
-    fonte_data = obter_fonte(20)
-    fonte_rodape = obter_fonte(16)           
+    fonte_titulo = obter_fonte(24, negrito=True) 
+    fonte_sub = obter_fonte(18)              
+    fonte_titulo_tab = obter_fonte(24, negrito=True)
+    fonte_tabela = obter_fonte(16)              
+    fonte_data = obter_fonte(12)
+    fonte_rodape = obter_fonte(10)           
 
     # 🎀 AJUSTE DA LOGO
     try:
@@ -168,12 +168,11 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
     # 🎀 RODAPÉ CENTRALIZADO (Capa)
     data_hoje_capa = datetime.now().strftime("%d/%m/%Y")
     draw.text((page_center_x, altura_pagina - 150), f"Gerado em: {data_hoje_capa}", fill="gray", font=fonte_data, anchor="mm")
-    draw.text((page_center_x, altura_pagina - 100), "Conteúdo gerado por:", fill="gray", font=fonte_rodape, anchor="mm")
+    draw.text((100, altura - 110), "Conteúdo gerado por:", fill="gray", font=f_rodape)
     
-    if logo_img:
-        logo_w, logo_h = logo_img.size
-        paste_x = int((largura_pagina - logo_w) / 2)
-        capa.paste(logo_img, (paste_x, altura_pagina - 80), logo_img) 
+     if logo_img:
+            # 100 é a distância da margem esquerda. Pode diminuir para 50 se quiser mais colado na borda!
+            capa.paste(logo_img, (100, altura - 80), logo_img)
     
     paginas_pdf.append(capa)
     
@@ -192,10 +191,9 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
             
         # 🎀 RODAPÉ CENTRALIZADO (Páginas de Produtos)
         draw_pagina.text((page_center_x, altura_pagina - 100), "Conteúdo gerado por:", fill="gray", font=fonte_rodape, anchor="mm")
-        if logo_img:
-            logo_w, logo_h = logo_img.size
-            paste_x = int((largura_pagina - logo_w) / 2)
-            pagina.paste(logo_img, (paste_x, altura_pagina - 80), logo_img)
+     if logo_img:
+            # 100 é a distância da margem esquerda. Pode diminuir para 50 se quiser mais colado na borda!
+            capa.paste(logo_img, (100, altura - 80), logo_img)
             
         paginas_pdf.append(pagina)
         
