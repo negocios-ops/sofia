@@ -90,6 +90,7 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
 
     relatar(f"Analisando {len(produtos_capturados)} produtos e montando o PDF...")
     
+# --- MONTAGEM DO PDF (AJUSTADO: Layout Limpo e Rodapé Centralizado) ---
     faixas = [(0, 490, "Até $ 490")]
     for limite in range(490, 1990, 100):
         faixas.append((limite + 0.01, limite + 100, f"De $ {limite + 1} a $ {limite + 100}"))
@@ -106,23 +107,15 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
                     total_validos += 1
                     break
 
-    largura_pagina, altura_pagina = 1200, 1700
+    # Padrão A4
+    largura_pagina, altura_pagina = 1240, 1754 
+    page_center_x = largura_pagina / 2
     margem = 50
     largura_max_img = (largura_pagina - 3 * margem) // 2
     altura_max_img = (altura_pagina - 3 * margem) // 2
     paginas_pdf = []
     
-    # 🎀 CARREGANDO E AUMENTANDO A LOGO 
-    try:
-        logo_img = Image.open("logo.png").convert("RGBA")
-        logo_img.thumbnail((200, 80), Image.Resampling.LANCZOS)
-    except Exception:
-        logo_img = None
-
-    capa = Image.new('RGB', (largura_pagina, altura_pagina), 'white')
-    draw = ImageDraw.Draw(capa)
-    
-   # 🎀 BUSCADOR DE FONTES INTELIGENTE (Funciona no Mac e na Nuvem)
+    # 🎀 BUSCADOR DE FONTES INTELIGENTE (Puxando DejaVu Sans do Linux)
     def obter_fonte(tamanho, negrito=False):
         caminhos = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if negrito else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -135,40 +128,56 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
             except: pass
         return ImageFont.load_default()
 
-    fonte_titulo = obter_fonte(85, negrito=True)
-    fonte_sub = obter_fonte(55)
-    fonte_titulo_tab = obter_fonte(45, negrito=True)
-    fonte_tabela = obter_fonte(35)
-    fonte_data = obter_fonte(40)
-    fonte_rodape = obter_fonte(25)
+    # 🎀 AJUSTE FINO DE TAMANHOS DE FONTE (Profissional)
+    fonte_titulo = obter_fonte(38, negrito=True) 
+    fonte_sub = obter_fonte(28)              
+    fonte_titulo_tab = obter_fonte(28, negrito=True)
+    fonte_tabela = obter_fonte(20)              
+    fonte_data = obter_fonte(20)
+    fonte_rodape = obter_fonte(16)           
 
-    draw.text((600, 250), "Análise de Mercado - Hering", fill="black", font=fonte_titulo, anchor="mm")
-    draw.text((600, 360), f"Gênero: {titulo_genero}", fill="dimgray", font=fonte_sub, anchor="mm")
-    draw.text((600, 440), f"Categoria: {titulo_categoria}", fill="dimgray", font=fonte_sub, anchor="mm")
+    # 🎀 AJUSTE DA LOGO
+    try:
+        logo_img = Image.open("logo.png").convert("RGBA")
+        logo_img.thumbnail((150, 60), Image.Resampling.LANCZOS)
+    except Exception:
+        logo_img = None
+
+    capa = Image.new('RGB', (largura_pagina, altura_pagina), 'white')
+    draw = ImageDraw.Draw(capa)
     
-    y_tabela = 580
-    draw.text((600, y_tabela), "Resumo de Faixas de Preço", fill="black", font=fonte_titulo_tab, anchor="mm")
-    y_tabela += 70
+    # Cabeçalho Centralizado
+    draw.text((page_center_x, 150), "Análise de Mercado - Hering", fill="black", font=fonte_titulo, anchor="mm")
+    draw.text((page_center_x, 230), f"Gênero: {titulo_genero}", fill="dimgray", font=fonte_sub, anchor="mm")
+    draw.text((page_center_x, 290), f"Categoria: {titulo_categoria}", fill="dimgray", font=fonte_sub, anchor="mm")
     
+    y_tabela = 400
+    draw.text((page_center_x, y_tabela), "Resumo de Faixas de Preço", fill="black", font=fonte_titulo_tab, anchor="mm")
+    y_tabela += 60
+    
+    # 🎀 FAIXAS DE PREÇO CENTRALIZADAS
     for label, count in contagem_precos.items():
         palavra = "produtos" if count != 1 else "produto"
         texto_linha = f"{label} ........................ {count} {palavra}"
-        draw.text((600, y_tabela), texto_linha, fill="#404040", font=fonte_tabela, anchor="mm")
-        y_tabela += 45
+        draw.text((page_center_x, y_tabela), texto_linha, fill="#404040", font=fonte_tabela, anchor="mm")
+        y_tabela += 30
         
-    y_tabela += 30
-    draw.text((600, y_tabela), f"TOTAL: {total_validos} produtos mapeados", fill="black", font=fonte_titulo_tab, anchor="mm")
+    y_tabela += 40
+    draw.text((page_center_x, y_tabela), f"TOTAL: {total_validos} produtos mapeados", fill="black", font=fonte_titulo_tab, anchor="mm")
     
+    # 🎀 RODAPÉ CENTRALIZADO (Capa)
     data_hoje_capa = datetime.now().strftime("%d/%m/%Y")
-    draw.text((600, 1550), f"Gerado em: {data_hoje_capa}", fill="gray", font=fonte_data, anchor="mm")
+    draw.text((page_center_x, altura_pagina - 150), f"Gerado em: {data_hoje_capa}", fill="gray", font=fonte_data, anchor="mm")
+    draw.text((page_center_x, altura_pagina - 100), "Conteúdo gerado por:", fill="gray", font=fonte_rodape, anchor="mm")
     
-    # 🎀 CARIMBO MOVIDO PARA A DIREITA (Capa)
-    draw.text((920, 1650), "Conteúdo gerado por:", fill="gray", font=fonte_rodape)
     if logo_img:
-        capa.paste(logo_img, (1130, 1630), logo_img) 
+        logo_w, logo_h = logo_img.size
+        paste_x = int((largura_pagina - logo_w) / 2)
+        capa.paste(logo_img, (paste_x, altura_pagina - 80), logo_img) 
     
     paginas_pdf.append(capa)
     
+    # Produtos - Grade
     for i in range(0, len(imagens_ordenadas), 4):
         lote = imagens_ordenadas[i:i+4]
         pagina = Image.new('RGB', (largura_pagina, altura_pagina), 'white')
@@ -181,18 +190,16 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
             pos_y = margem + linha * (altura_max_img + margem)
             pagina.paste(img, (pos_x, pos_y))
             
-        # 🎀 CARIMBO MOVIDO PARA A DIREITA (Páginas de Produtos)
-        draw_pagina.text((920, 1650), "Conteúdo gerado por:", fill="gray", font=fonte_rodape)
+        # 🎀 RODAPÉ CENTRALIZADO (Páginas de Produtos)
+        draw_pagina.text((page_center_x, altura_pagina - 100), "Conteúdo gerado por:", fill="gray", font=fonte_rodape, anchor="mm")
         if logo_img:
-            pagina.paste(logo_img, (1130, 1630), logo_img)
+            logo_w, logo_h = logo_img.size
+            paste_x = int((largura_pagina - logo_w) / 2)
+            pagina.paste(logo_img, (paste_x, altura_pagina - 80), logo_img)
             
         paginas_pdf.append(pagina)
         
     if paginas_pdf:
         paginas_pdf[0].save(arquivo_saida, save_all=True, append_images=paginas_pdf[1:])
-        relatar(f"✅ PDF finalizado com sucesso!")
+        relatar(f"✅ PDF finalizado com layout profissional!")
         return arquivo_saida
-
-# Função que o site chama
-def extrair_produtos_hering(navegador, url, arquivo_saida, titulo_genero, titulo_categoria, log_callback=None):
-    return extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titulo_categoria, log_callback)
