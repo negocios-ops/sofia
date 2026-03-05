@@ -12,13 +12,11 @@ except ImportError:
 st.set_page_config(page_title="Sofia - Dashboard", page_icon="🎀", layout="centered")
 
 # --- 🔒 SISTEMA DE SEGURANÇA ---
-SENHA_OFICIAL = "trp2018"  # A sua senha atualizada!
+SENHA_OFICIAL = "trp2018"
 
-# Cria a "memória" do site para lembrar se a pessoa já digitou a senha
 if "acesso_liberado" not in st.session_state:
     st.session_state.acesso_liberado = False
 
-# Se a pessoa ainda não tem acesso, mostra a tela de bloqueio
 if not st.session_state.acesso_liberado:
     st.title("🔒 Acesso Restrito")
     st.write("Bem-vindo(a)! Por favor, insira a senha da equipe para acessar a Sofia.")
@@ -28,13 +26,13 @@ if not st.session_state.acesso_liberado:
     if st.button("Entrar ⏩", use_container_width=True):
         if senha_digitada == SENHA_OFICIAL:
             st.session_state.acesso_liberado = True
-            st.rerun()  # Recarrega a página revelando o site real
+            st.rerun()
         else:
             st.error("❌ Senha incorreta. Tente novamente.")
             
-    st.stop()  # Trava o site aqui! O código lá para baixo nem roda se não tiver a senha.
+    st.stop()
 
-# --- DICIONÁRIO DE URLs DA BIA ---
+# --- DICIONÁRIO DE URLs (COM ORTOGRAFIA CORRIGIDA) ---
 urls_renner = {
     "Masculino": {
         "Bermudas": "https://www.renner.com/uy/c/masculino/bermudas-y-shorts/cat360002uy",
@@ -145,7 +143,6 @@ urls_hering = {
 
 master_urls = {"Renner": urls_renner, "Hering": urls_hering}
 
-# O cérebro dinâmico puxa os dados automaticamente do seu dicionário
 opcoes_catalogo = {
     "🇺🇾 Uruguai": {
         marca: {genero: list(categorias.keys()) for genero, categorias in dados_marca.items()}
@@ -187,7 +184,7 @@ with col2:
 
 st.divider()
 
-# --- BOTÃO DE AÇÃO (VISUAL LIMPO E DEFINITIVO) ---
+# --- BOTÃO DE AÇÃO ---
 if st.button("⏩️ Iniciar Robô Sofia", use_container_width=True):
     
     tarefas = []
@@ -209,14 +206,13 @@ if st.button("⏩️ Iniciar Robô Sofia", use_container_width=True):
 
     st.divider()
     
-    # 🟢 VISUAL LIMPO: Apenas uma mensagem central e a barra de progresso
     caixa_de_mensagem = st.empty()
     barra_progresso = st.progress(0)
     
     def atualizar_tela(mensagem_do_robo):
         caixa_de_mensagem.info(f"🔄 **Ação:** {mensagem_do_robo}")
 
-    pasta_downloads = "." # Pasta correta para a Nuvem
+    pasta_downloads = "."
     arquivos_gerados = []
 
     for indice, (gen_alvo, cat_alvo) in enumerate(tarefas):
@@ -225,6 +221,7 @@ if st.button("⏩️ Iniciar Robô Sofia", use_container_width=True):
         caminho_arquivo = os.path.join(pasta_downloads, nome_pdf)
         
         try:
+            arquivo_final = None
             if marca_selecionada == "Renner":
                 navegador = renner.iniciar_navegador()
                 arquivo_final = renner.extrair_produtos_renner(
@@ -238,6 +235,7 @@ if st.button("⏩️ Iniciar Robô Sofia", use_container_width=True):
             
             if arquivo_final:
                 arquivos_gerados.append(arquivo_final)
+                
         except Exception as e:
             atualizar_tela(f"Erro inesperado em {cat_alvo}. Pulando para o próximo.")
             time.sleep(2)
@@ -247,7 +245,7 @@ if st.button("⏩️ Iniciar Robô Sofia", use_container_width=True):
         
         barra_progresso.progress((indice + 1) / len(tarefas))
 
-    # --- PREPARANDO O DOWNLOAD REAL ---
+    # --- PREPARANDO O DOWNLOAD ---
     if arquivos_gerados:
         caixa_de_mensagem.success("🎉 Arquivos gerados com sucesso!")
         
@@ -260,9 +258,12 @@ if st.button("⏩️ Iniciar Robô Sofia", use_container_width=True):
         else:
             nome_zip = f"Sofia_Pacote_{marca_selecionada}.zip"
             arquivo_para_baixar = os.path.join(pasta_downloads, nome_zip)
+            
             with zipfile.ZipFile(arquivo_para_baixar, 'w') as zipf:
-                for pdf in arquivos_gerados:
-                    zipf.write(pdf, arcname=os.path.basename(pdf))
+                for pdf_path in arquivos_gerados:
+                    # Salva os arquivos direto no ZIP, sem criar pastas internas
+                    zipf.write(pdf_path, arcname=os.path.basename(pdf_path))
+                    
             with open(arquivo_para_baixar, "rb") as f:
                 dados_download = f.read()
             mime_tipo = "application/zip"
