@@ -22,10 +22,8 @@ def iniciar_navegador():
     
     # 🟢 O TRUQUE CAMALEÃO: Descobre se está no Mac ou na Nuvem
     if os.path.exists('/usr/bin/chromedriver'):
-        # Se achar esse arquivo, a Sofia sabe que está no servidor do Streamlit
         servico = Service('/usr/bin/chromedriver')
     else:
-        # Se não achar, a Sofia sabe que está no seu Mac
         servico = Service(ChromeDriverManager().install())
         
     return webdriver.Chrome(service=servico, options=opcoes)
@@ -90,7 +88,7 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
 
     relatar(f"Analisando {len(produtos_capturados)} produtos e montando o PDF...")
     
-# --- MONTAGEM DO PDF (AJUSTADO: Layout Limpo e Rodapé Centralizado) ---
+# --- MONTAGEM DO PDF (AJUSTADO: Layout Limpo e Rodapé à Esquerda) ---
     faixas = [(0, 490, "Até $ 490")]
     for limite in range(490, 1990, 100):
         faixas.append((limite + 0.01, limite + 100, f"De $ {limite + 1} a $ {limite + 100}"))
@@ -115,7 +113,7 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
     altura_max_img = (altura_pagina - 3 * margem) // 2
     paginas_pdf = []
     
-    # 🎀 BUSCADOR DE FONTES INTELIGENTE (Puxando DejaVu Sans do Linux)
+    # 🎀 BUSCADOR DE FONTES INTELIGENTE 
     def obter_fonte(tamanho, negrito=False):
         caminhos = [
             "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if negrito else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -128,7 +126,8 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
             except: pass
         return ImageFont.load_default()
 
-    # 🎀 AJUSTE FINO DE TAMANHOS DE FONTE (Profissional)
+    # 🎀 AJUSTE FINO DE TAMANHOS DE FONTE
+    # Dica: se achar que o texto ficou pequeno demais na folha A4, aumente esses números!
     fonte_titulo = obter_fonte(24, negrito=True) 
     fonte_sub = obter_fonte(18)              
     fonte_titulo_tab = obter_fonte(24, negrito=True)
@@ -155,7 +154,7 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
     draw.text((page_center_x, y_tabela), "Resumo de Faixas de Preço", fill="black", font=fonte_titulo_tab, anchor="mm")
     y_tabela += 60
     
-    # 🎀 FAIXAS DE PREÇO CENTRALIZADAS
+    # FAIXAS DE PREÇO CENTRALIZADAS
     for label, count in contagem_precos.items():
         palavra = "produtos" if count != 1 else "produto"
         texto_linha = f"{label} ........................ {count} {palavra}"
@@ -165,14 +164,13 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
     y_tabela += 40
     draw.text((page_center_x, y_tabela), f"TOTAL: {total_validos} produtos mapeados", fill="black", font=fonte_titulo_tab, anchor="mm")
     
-    # 🎀 RODAPÉ CENTRALIZADO (Capa)
+    # 🎀 RODAPÉ DA CAPA (À Esquerda)
     data_hoje_capa = datetime.now().strftime("%d/%m/%Y")
     draw.text((page_center_x, altura_pagina - 150), f"Gerado em: {data_hoje_capa}", fill="gray", font=fonte_data, anchor="mm")
-    draw.text((100, altura - 110), "Conteúdo gerado por:", fill="gray", font=f_rodape)
     
-     if logo_img:
-            # 100 é a distância da margem esquerda. Pode diminuir para 50 se quiser mais colado na borda!
-            capa.paste(logo_img, (100, altura - 80), logo_img)
+    draw.text((100, altura_pagina - 110), "Conteúdo gerado por:", fill="gray", font=fonte_rodape)
+    if logo_img:
+        capa.paste(logo_img, (100, altura_pagina - 80), logo_img)
     
     paginas_pdf.append(capa)
     
@@ -189,11 +187,10 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
             pos_y = margem + linha * (altura_max_img + margem)
             pagina.paste(img, (pos_x, pos_y))
             
-        # 🎀 RODAPÉ CENTRALIZADO (Páginas de Produtos)
-        draw_pagina.text((page_center_x, altura_pagina - 100), "Conteúdo gerado por:", fill="gray", font=fonte_rodape, anchor="mm")
-     if logo_img:
-            # 100 é a distância da margem esquerda. Pode diminuir para 50 se quiser mais colado na borda!
-            capa.paste(logo_img, (100, altura - 80), logo_img)
+        # 🎀 RODAPÉ NAS PÁGINAS DE PRODUTOS (À Esquerda)
+        draw_pagina.text((100, altura_pagina - 110), "Conteúdo gerado por:", fill="gray", font=fonte_rodape)
+        if logo_img:
+            pagina.paste(logo_img, (100, altura_pagina - 80), logo_img)
             
         paginas_pdf.append(pagina)
         
@@ -201,3 +198,7 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
         paginas_pdf[0].save(arquivo_saida, save_all=True, append_images=paginas_pdf[1:])
         relatar(f"✅ PDF finalizado com layout profissional!")
         return arquivo_saida
+
+# Função que o site chama
+def extrair_produtos_hering(navegador, url, arquivo_saida, titulo_genero, titulo_categoria, log_callback=None):
+    return extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titulo_categoria, log_callback)
