@@ -36,8 +36,8 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
     produtos_capturados = []
     links_vistos = set()
     
-    # Tenta até 15 páginas
-    for pagina_atual in range(1, 16):
+    # 🎀 NOVO LIMITE: Tenta até 70 páginas!
+    for pagina_atual in range(1, 71):
         uniao = "&" if "?" in url_base else "?"
         url_paginada = f"{url_base}{uniao}page={pagina_atual}"
         
@@ -82,6 +82,10 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
                     
                     print_binario = item.screenshot_as_png
                     imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
+                    
+                    # 🎀 DIETA DA SOFIA APLICADA: Encolhendo a foto agora para aguentar as 70 páginas!
+                    imagem.thumbnail((380, 520), Image.Resampling.LANCZOS)
+                    
                     produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
                     contagem_pagina += 1
             except Exception:
@@ -125,7 +129,6 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
 
     try:
         logo_img = Image.open("logo.png").convert("RGBA")
-        # 🎀 LOGO AUMENTADA: De (150, 60) para (250, 100)
         logo_img.thumbnail((250, 100), Image.Resampling.LANCZOS)
     except Exception:
         logo_img = None
@@ -138,7 +141,7 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
     draw.text((page_center_x, 290), f"Categoria: {titulo_categoria}", fill="gray", font=f_sub, anchor="mm")
     draw.text((page_center_x, 400), "Resumo de Faixas de Preço", fill="black", font=f_sub, anchor="mm")
 
-    # 🎀 Faixas de preço adaptadas de 20 em 20 SOLES
+    # Faixas de preço adaptadas de 20 em 20 SOLES
     faixas = [(0, 20.99, "Até S/ 20")]
     for limite in range(20, 300, 20):
         faixas.append((limite + 0.01, limite + 20.99, f"De S/ {limite + 1} a S/ {limite + 20}"))
@@ -154,19 +157,17 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
 
     y_pos = 480
     for label, count in contagem_precos.items():
-        palavra = "produtos" if count != 1 else "produto"
-        draw.text((page_center_x, y_pos), f"{label} ........................ {count} {palavra}", fill="black", font=f_txt, anchor="mm")
-        y_pos += 30
+        if count > 0: # Uma pequena limpeza visual: só mostra a faixa se tiver produto nela
+            palavra = "produtos" if count != 1 else "produto"
+            draw.text((page_center_x, y_pos), f"{label} ........................ {count} {palavra}", fill="black", font=f_txt, anchor="mm")
+            y_pos += 30
     
     draw.text((page_center_x, y_pos + 120), f"TOTAL: {len(produtos_capturados)} produtos únicos mapeados", fill="black", font=f_tit, anchor="mm")
     
     # Rodapé da Capa (À esquerda)
     draw.text((page_center_x, altura - 150), f"Gerado em: {data_geracao}", fill="gray", font=f_txt, anchor="mm")
     
-    # 🎀 TEXTO REMOVIDO: draw.text((100, altura - 110), "Conteúdo gerado por:", ...)
-    
     if logo_img:
-        # 🎀 POSIÇÃO AJUSTADA: Alinhada à esquerda, com margem inferior de 50px
         logo_w, logo_h = logo_img.size
         capa.paste(logo_img, (100, altura - logo_h - 50), logo_img)
 
@@ -180,6 +181,7 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
         
         for j, prod in enumerate(lote):
             img_copy = prod['imagem'].copy()
+            # A imagem já vem leve da "dieta", mas mantemos isso por segurança
             img_copy.thumbnail((380, 520), Image.Resampling.LANCZOS)
             d_prod = ImageDraw.Draw(img_copy)
             d_prod.rectangle([0, 0, 160, 50], fill="red")
@@ -188,10 +190,7 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
             pagina.paste(img_copy, (x, y))
             
         # Rodapé das Páginas (À Esquerda)
-        # 🎀 TEXTO REMOVIDO: d_pagina.text((100, altura - 110), "Conteúdo gerado por:", ...)
-        
         if logo_img: 
-            # 🎀 POSIÇÃO AJUSTADA NAS PÁGINAS TAMBÉM
             logo_w, logo_h = logo_img.size
             pagina.paste(logo_img, (100, altura - logo_h - 50), logo_img)
             
