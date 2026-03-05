@@ -231,7 +231,10 @@ if st.button("⏩️ Iniciar Robô Sofia", use_container_width=True):
 
     for indice, (gen_alvo, cat_alvo) in enumerate(tarefas):
         url_alvo = master_urls[pais_selecionado][marca_selecionada][gen_alvo][cat_alvo]
-        nome_pdf = f"Sofia - {pais_selecionado} - {marca_selecionada} - {gen_alvo} - {cat_alvo}.pdf"
+        # 🎀 NOMEADOR INTELIGENTE DE ARQUIVOS
+        data_hoje_arq = datetime.now().strftime("%Y.%m.%d")
+        pais_limpo = pais_selecionado.replace("🇺🇾 ", "").replace("🇵🇪 ", "") # Tira a bandeirinha do nome
+        nome_pdf = f"{marca_selecionada} {pais_limpo} {gen_alvo} {cat_alvo} - {data_hoje_arq}.pdf"
         caminho_arquivo = os.path.join(pasta_downloads, nome_pdf)
         
         try:
@@ -275,7 +278,7 @@ if st.button("⏩️ Iniciar Robô Sofia", use_container_width=True):
             mime_tipo = "application/pdf"
             nome_botao = os.path.basename(arquivo_para_baixar)
         else:
-            nome_zip = f"Sofia_Pacote_{marca_selecionada}.zip"
+            nome_zip = f"Pacote {marca_selecionada} {pais_limpo} - {data_hoje_arq}.zip"
             arquivo_para_baixar = os.path.join(pasta_downloads, nome_zip)
             
             with zipfile.ZipFile(arquivo_para_baixar, 'w') as zipf:
