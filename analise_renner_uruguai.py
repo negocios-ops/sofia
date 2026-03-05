@@ -110,13 +110,24 @@ def extrair_produtos_renner(navegador, url_base, arquivo_saida, titulo_genero, t
 
     capa = Image.new('RGB', (largura, altura), 'white')
     draw = ImageDraw.Draw(capa)
-    try:
-        f_tit = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 55)
-        f_sub = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 45)
-        f_txt = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 30)
-        f_rodape = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 25) 
-    except: 
-        f_tit = f_sub = f_txt = f_rodape = ImageFont.load_default()
+
+    # 🎀 BUSCADOR DE FONTES INTELIGENTE (Funciona no Mac e na Nuvem)
+    def obter_fonte(tamanho, negrito=False):
+        caminhos = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if negrito else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if negrito else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+            "/System/Library/Fonts/Supplemental/Arial Bold.ttf" if negrito else "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "arial.ttf"
+        ]
+        for caminho in caminhos:
+            try: return ImageFont.truetype(caminho, tamanho)
+            except: pass
+        return ImageFont.load_default()
+
+    f_tit = obter_fonte(55, negrito=True)
+    f_sub = obter_fonte(45)
+    f_txt = obter_fonte(30)
+    f_rodape = obter_fonte(25)
 
     draw.text((620, 150), "Análise de Mercado - Renner Uruguay", fill="black", font=f_tit, anchor="mm")
     draw.text((620, 230), f"Gênero: {titulo_genero}", fill="gray", font=f_sub, anchor="mm")
