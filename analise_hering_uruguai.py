@@ -128,12 +128,12 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
 
     # 🎀 AJUSTE FINO DE TAMANHOS DE FONTE
     # Dica: se achar que o texto ficou pequeno demais na folha A4, aumente esses números!
-    fonte_titulo = obter_fonte(24, negrito=True) 
-    fonte_sub = obter_fonte(18)              
-    fonte_titulo_tab = obter_fonte(24, negrito=True)
-    fonte_tabela = obter_fonte(16)              
-    fonte_data = obter_fonte(12)
-    fonte_rodape = obter_fonte(10)           
+    fonte_titulo = obter_fonte(28, negrito=True) 
+    fonte_sub = obter_fonte(22)              
+    fonte_titulo_tab = obter_fonte(28, negrito=True)
+    fonte_tabela = obter_fonte(22)              
+    fonte_data = obter_fonte(16)
+    fonte_rodape = obter_fonte(14)           
 
     # 🎀 AJUSTE DA LOGO
     try:
@@ -170,7 +170,7 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
     
     draw.text((100, altura_pagina - 110), "Conteúdo gerado por:", fill="gray", font=fonte_rodape)
     if logo_img:
-        capa.paste(logo_img, (100, altura_pagina - 80), logo_img)
+        capa.paste(logo_img, (100, altura_pagina - 90), logo_img)
     
     paginas_pdf.append(capa)
     
@@ -190,7 +190,7 @@ def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titu
         # 🎀 RODAPÉ NAS PÁGINAS DE PRODUTOS (À Esquerda)
         draw_pagina.text((100, altura_pagina - 110), "Conteúdo gerado por:", fill="gray", font=fonte_rodape)
         if logo_img:
-            pagina.paste(logo_img, (100, altura_pagina - 80), logo_img)
+            pagina.paste(logo_img, (100, altura_pagina - 90), logo_img)
             
         paginas_pdf.append(pagina)
         
