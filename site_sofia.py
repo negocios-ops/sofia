@@ -6,6 +6,7 @@ import zipfile
 try:
     import analise_renner_uruguai as renner
     import analise_hering_uruguai as hering
+    import analise_estilos_peru as estilos
 except ImportError:
     st.warning("⚠️ Arquivos dos robôs não encontrados na mesma pasta.")
 
@@ -141,14 +142,29 @@ urls_hering = {
     }
 }
 
-master_urls = {"Renner": urls_renner, "Hering": urls_hering}
-
-opcoes_catalogo = {
-    "🇺🇾 Uruguai": {
-        marca: {genero: list(categorias.keys()) for genero, categorias in dados_marca.items()}
-        for marca, dados_marca in master_urls.items()
+urls_estilos = {
+    "Masculino": {
+        "Blusões": "https://www.estilos.com.pe/moda-y-accesorios/hombre/ropa-hombre/poleras",
+        "Polos": "https://www.estilos.com.pe/moda-y-accesorios/hombre/ropa-hombre/polos",
+        "Camisas": "https://www.estilos.com.pe/moda-y-accesorios/hombre/ropa-hombre/camisas",
+        "Casacos": "https://www.estilos.com.pe/moda-y-accesorios/hombre/ropa-hombre/casacas-y-abrigos",
+        "Calças": "https://www.estilos.com.pe/moda-y-accesorios/hombre/ropa-hombre/pantalones-hombre/pantalones-y-joggers",
+        "Jeans": "https://www.estilos.com.pe/moda-y-accesorios/hombre/ropa-hombre/pantalones-hombre/jeans-hombre",
+        "Shorts e bermudas": "https://www.estilos.com.pe/moda-y-accesorios/hombre/ropa-hombre/shorts-y-bermudas"
     }
 }
+
+master_urls = {
+    "🇺🇾 Uruguai": {
+        "Renner": urls_renner, 
+        "Hering": urls_hering
+    },
+    "🇵🇪 Peru": {
+        "Estilos": urls_estilos
+    }
+}
+
+opcoes_catalogo = master_urls
 
 # --- CABEÇALHO DO SITE ---
 st.title("🎀 Sofia: Inteligência de Mercado")
@@ -230,6 +246,11 @@ if st.button("⏩️ Iniciar Robô Sofia", use_container_width=True):
             elif marca_selecionada == "Hering":
                 navegador = hering.iniciar_navegador()
                 arquivo_final = hering.extrair_produtos_hering(
+                    navegador, url_alvo, caminho_arquivo, gen_alvo, cat_alvo, log_callback=atualizar_tela
+                )
+            elif marca_selecionada == "Estilos": # <-- ADICIONE ESTA PARTE DA ESTILOS
+                navegador = estilos.iniciar_navegador()
+                arquivo_final = estilos.extrair_produtos_estilos(
                     navegador, url_alvo, caminho_arquivo, gen_alvo, cat_alvo, log_callback=atualizar_tela
                 )
             
