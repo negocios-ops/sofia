@@ -3,7 +3,7 @@ import time
 import os
 import zipfile
 
-try:
+
     import analise_renner_uruguai as renner
     import analise_hering_uruguai as hering
     import analise_estilos_peru as estilos
