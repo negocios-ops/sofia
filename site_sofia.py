@@ -230,8 +230,8 @@ if st.button("⏩️ Iniciar Robô Sofia", use_container_width=True):
     arquivos_gerados = []
 
     for indice, (gen_alvo, cat_alvo) in enumerate(tarefas):
-        url_alvo = master_urls[marca_selecionada][gen_alvo][cat_alvo]
-        nome_pdf = f"Sofia_{marca_selecionada}_{gen_alvo}_{cat_alvo}.pdf"
+        url_alvo = master_urls[pais_selecionado][marca_selecionada][gen_alvo][cat_alvo]
+        nome_pdf = f"Sofia_{pais_selecionado}_{marca_selecionada}_{gen_alvo}_{cat_alvo}.pdf"
         caminho_arquivo = os.path.join(pasta_downloads, nome_pdf)
         
         try:
