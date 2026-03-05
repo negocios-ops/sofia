@@ -15,7 +15,19 @@ def iniciar_navegador():
     opcoes.add_argument('--window-size=1920,1080')
     opcoes.add_argument('--disable-notifications') 
     
-    servico = Service(ChromeDriverManager().install())
+    # 🟢 ESSENCIAIS PARA A NUVEM (Evita que o Chrome trave ou falhe)
+    opcoes.add_argument('--no-sandbox')
+    opcoes.add_argument('--disable-dev-shm-usage')
+    opcoes.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
+    
+    # 🟢 O TRUQUE CAMALEÃO: Descobre se está no Mac ou na Nuvem
+    if os.path.exists('/usr/bin/chromedriver'):
+        # Se achar esse arquivo, a Sofia sabe que está no servidor do Streamlit
+        servico = Service('/usr/bin/chromedriver')
+    else:
+        # Se não achar, a Sofia sabe que está no seu Mac
+        servico = Service(ChromeDriverManager().install())
+        
     return webdriver.Chrome(service=servico, options=opcoes)
 
 def extrair_produtos_para_pdf(navegador, url, arquivo_saida, titulo_genero, titulo_categoria, log_callback=None):
