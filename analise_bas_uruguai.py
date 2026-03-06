@@ -36,20 +36,139 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
     produtos_capturados = []
     links_vistos = set()
     
-    relatar("Abrindo site e expandindo todo o catálogo...")
     navegador.get(url_alvo)
     time.sleep(8)
     
-    # 🎀 EXPANSÃO MÁXIMA (TRATOR JS)
-    for ciclo in range(1, 20):
-        relatar(f"Descendo a página e buscando botão 'Cargar Más' (Ciclo {ciclo})...")
+    tentativas_vazias = 0
+
+    # 🎀 ESTRATÉGIA DO ASPIRADOR DE PÓ (CAPTURA EM TEMPO REAL)
+    for ciclo in range(1, 40): # Tenta "aspirar" até 40 blocos de roupas
+        relatar(f"Aspirando roupas na tela... (Ciclo {ciclo}) - Já temos: {len(produtos_capturados)}")
         
-        # Desce suave para revelar tudo
-        for _ in range(15):
-            navegador.execute_script("window.scrollBy(0, 700);")
-            time.sleep(0.4)
+        # 1. Atualiza onde está a barreira proibida
+        js_barreira = """
+        var elements = document.querySelectorAll('h2, h3, h4, span, div, p');
+        for (var i = 0; i < elements.length; i++) {
+            var txt = elements[i].textContent || "";
+            if (txt.toUpperCase().includes('TE PUEDE INTERESAR')) {
+                var rect = elements[i].getBoundingClientRect();
+                return rect.top + window.scrollY;
+            }
+        }
+        return -1;
+        """
+        y_barreira = navegador.execute_script(js_barreira)
+        
+        # 2. Localiza as roupas que estão visíveis neste exato segundo
+        js_finder = """
+        var cards = [];
+        var images = document.querySelectorAll('img');
+        for (var i = 0; i < images.length; i++) {
+            var img = images[i];
+            var rect = img.getBoundingClientRect();
+            if (rect.height < 120) continue; 
             
-        # Força o clique pelo coração do site (Javascript)
+            var pai = img;
+            var found = null;
+            for (var level = 0; level < 7; level++) {
+                pai = pai.parentElement;
+                if (!pai) break;
+                var txt = pai.textContent || "";
+                if (txt.includes('$') || txt.includes('UYU')) {
+                    var pRect = pai.getBoundingClientRect();
+                    if (pRect.height > 150 && pRect.height < 1500 && pRect.width > 100 && pRect.width < 900) {
+                        found = pai;
+                        break;
+                    }
+                }
+            }
+            if (found && !cards.includes(found)) {
+                cards.push(found);
+            }
+        }
+        return cards;
+        """
+        elementos_validos = navegador.execute_script(js_finder)
+        
+        novos_encontrados = 0
+        
+        # 3. Processa e tira foto de cada um imediatamente!
+        for item in elementos_validos:
+            try:
+                # Checa se passou do carrossel proibido
+                abs_y = navegador.execute_script("return arguments[0].getBoundingClientRect().top + window.scrollY;", item)
+                if y_barreira != -1 and abs_y > y_barreira:
+                    continue 
+                    
+                txt = navegador.execute_script("return arguments[0].textContent;", item)
+                
+                # Link para não fotografar a mesma roupa duas vezes
+                try: link = item.find_element(By.TAG_NAME, 'a').get_attribute('href')
+                except: link = str(abs_y)
+                
+                if not link or link in links_vistos:
+                    continue
+                    
+                # Matemática de extração de preço uruguaio ($ 1.290)
+                matches = re.findall(r'(?:\$|UYU)\s*([\d\.,]+)', txt)
+                if not matches: continue
+                
+                precos = []
+                for m in matches:
+                    clean_str = m.replace(' ', '')
+                    if ',' in clean_str and '.' in clean_str:
+                        if clean_str.rfind(',') > clean_str.rfind('.'):
+                            clean_str = clean_str.replace('.', '').replace(',', '.')
+                        else:
+                            clean_str = clean_str.replace(',', '')
+                    elif ',' in clean_str:
+                        if len(clean_str.split(',')[-1]) == 2:
+                            clean_str = clean_str.replace(',', '.')
+                        else:
+                            clean_str = clean_str.replace(',', '')
+                    elif '.' in clean_str:
+                        if len(clean_str.split('.')[-1]) == 2:
+                             pass
+                        else:
+                             clean_str = clean_str.replace('.', '')
+                    try: precos.append(float(clean_str))
+                    except: pass
+                
+                if not precos: continue
+                valor_preco = max(precos) # Preço cheio
+                
+                # Olha diretamente para a roupa para a foto carregar
+                navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", item)
+                time.sleep(0.5)
+                
+                # Garante que a foto "fantasma" já apareceu
+                h_img = navegador.execute_script("try { return arguments[0].getElementsByTagName('img')[0].naturalHeight; } catch(e) { return 100; }", item)
+                if h_img == 0:
+                    time.sleep(0.5) 
+                
+                # Bate a foto e joga na mochila
+                print_binario = item.screenshot_as_png
+                imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
+                imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
+                
+                links_vistos.add(link)
+                produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
+                novos_encontrados += 1
+            except Exception:
+                continue
+                
+        # Lógica de persistência
+        if novos_encontrados > 0:
+            tentativas_vazias = 0
+        else:
+            tentativas_vazias += 1
+            
+        # 4. Força scroll para revelar o que tem embaixo
+        for _ in range(4):
+            navegador.execute_script("window.scrollBy(0, 800);")
+            time.sleep(0.5)
+            
+        # 5. Clica no Cargar Más se ele apareceu
         js_click = """
         var elements = document.querySelectorAll('button, a, span, div');
         for (var i = 0; i < elements.length; i++) {
@@ -65,130 +184,15 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
         return false;
         """
         clicou = navegador.execute_script(js_click)
-        
         if clicou:
-            relatar(f"✅ Botão 'Cargar Más' ativado! Esperando as roupas novas...")
-            time.sleep(5)
-        else:
-            relatar("Fim do catálogo. Nenhuma página a mais para carregar!")
+            relatar("Botão 'Cargar Más' ativado! Puxando nova leva...")
+            time.sleep(4)
+            tentativas_vazias = 0 # Dá um fôlego extra se achou o botão
+            
+        # Parada de Segurança: 3 ciclos inteiros sem roupa e sem botão
+        if tentativas_vazias >= 3:
+            relatar("Nenhuma roupa nova ou botão encontrados recentemente. Fim da categoria!")
             break
-            
-    # Voltar ao topo
-    navegador.execute_script("window.scrollTo(0, 0);")
-    time.sleep(2)
-
-    # 🎀 DETECTOR DA BARREIRA "TE PUEDE INTERESAR"
-    limite_y = float('inf')
-    try:
-        js_barreira = """
-        var elements = document.querySelectorAll('h2, h3, h4, span, div, p');
-        for (var i = 0; i < elements.length; i++) {
-            var txt = elements[i].textContent || "";
-            if (txt.toUpperCase().includes('TE PUEDE INTERESAR')) {
-                var rect = elements[i].getBoundingClientRect();
-                var absY = rect.top + window.scrollY;
-                if (absY > 1000) { // Garante que a barreira está lá no fundo
-                    return absY;
-                }
-            }
-        }
-        return -1;
-        """
-        y_barreira = navegador.execute_script(js_barreira)
-        if y_barreira != -1:
-            limite_y = y_barreira
-            relatar(f"🛡️ Barreira de segurança detectada. Isolando produtos do rodapé.")
-    except Exception:
-        pass
-
-    # 🎀 BUSCADOR DE CARDS 5.0
-    relatar("Escaneando a tela e localizando os produtos válidos...")
-    js_finder = """
-    var cards = [];
-    var images = document.querySelectorAll('img');
-    for (var i = 0; i < images.length; i++) {
-        var img = images[i];
-        var rect = img.getBoundingClientRect();
-        if (rect.height < 150) continue; // Ignora logos e ícones
-        
-        var pai = img;
-        var found = null;
-        for (var level = 0; level < 6; level++) {
-            pai = pai.parentElement;
-            if (!pai) break;
-            
-            var txt = pai.textContent || "";
-            if (txt.includes('$') || txt.includes('UYU')) {
-                var pRect = pai.getBoundingClientRect();
-                // Confirma se o tamanho parece com uma caixinha de roupa
-                if (pRect.height > 200 && pRect.height < 1200 && pRect.width > 120 && pRect.width < 800) {
-                    found = pai;
-                    break;
-                }
-            }
-        }
-        if (found && !cards.includes(found)) {
-            cards.push(found);
-        }
-    }
-    return cards;
-    """
-    elementos_validos = navegador.execute_script(js_finder)
-    relatar(f"Localizados {len(elementos_validos)} produtos potenciais na tela. Fotografando...")
-
-    for item in elementos_validos:
-        try:
-            # Verifica se o produto está antes da barreira proibida
-            abs_y = navegador.execute_script("return arguments[0].getBoundingClientRect().top + window.scrollY;", item)
-            if abs_y > limite_y:
-                continue
-                
-            navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", item)
-            time.sleep(0.4) # Dá tempo pra foto carregar perfeitamente
-            
-            txt = navegador.execute_script("return arguments[0].textContent;", item)
-            matches = re.findall(r'(?:\$|UYU)\s*([\d\.,]+)', txt)
-            if not matches: continue
-            
-            precos = []
-            for m in matches:
-                clean_str = m.replace(' ', '')
-                if ',' in clean_str and '.' in clean_str:
-                    if clean_str.rfind(',') > clean_str.rfind('.'):
-                        clean_str = clean_str.replace('.', '').replace(',', '.')
-                    else:
-                        clean_str = clean_str.replace(',', '')
-                elif ',' in clean_str:
-                    if len(clean_str.split(',')[-1]) == 2:
-                        clean_str = clean_str.replace(',', '.')
-                    else:
-                        clean_str = clean_str.replace(',', '')
-                elif '.' in clean_str:
-                    if len(clean_str.split('.')[-1]) == 2:
-                         pass
-                    else:
-                         clean_str = clean_str.replace('.', '')
-                         
-                try: precos.append(float(clean_str))
-                except: pass
-            
-            if not precos: continue
-            # Mágica do Preço Original
-            valor_preco = max(precos)
-            
-            try: link = item.find_element(By.TAG_NAME, 'a').get_attribute('href')
-            except: link = str(abs_y) # Salva pela posição se não achar link
-            
-            if link in links_vistos: continue
-            links_vistos.add(link)
-            
-            print_binario = item.screenshot_as_png
-            imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
-            imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
-            
-            produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
-        except Exception:
-            continue
             
     if not produtos_capturados: 
         relatar("❌ Nenhum produto capturado validamente.")
@@ -225,7 +229,7 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
     draw.text((page_center_x, 290), f"Categoria: {titulo_categoria}", fill="gray", font=f_sub, anchor="mm")
     draw.text((page_center_x, 400), "Resumo de Faixas de Preço", fill="black", font=f_sub, anchor="mm")
 
-    # 🎀 FAIXAS DE PREÇO ATUALIZADAS (De 100 em 100)
+    # 🎀 FAIXAS DE PREÇO (De 100 em 100)
     faixas = [(0, 99.99, "Até $ 99")]
     for limite in range(100, 3000, 100):
         faixas.append((limite, limite + 99.99, f"De $ {limite} a $ {limite + 99}"))
