@@ -35,22 +35,23 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
     relatar(f"Iniciando captura de {titulo_categoria} (Estilos Peru)...")
     produtos_capturados = []
     links_vistos = set()
+
+# 🎀 SISTEMA DE TOLERÂNCIA E MEMÓRIA
+    paginas_vazias_consecutivas = 0
     
-    # 🎀 NOVO LIMITE: Tenta até 70 páginas!
     for pagina_atual in range(1, 71):
         uniao = "&" if "?" in url_base else "?"
         url_paginada = f"{url_base}{uniao}page={pagina_atual}"
         
         relatar(f"Acessando Página {pagina_atual}...")
         navegador.get(url_paginada)
-        time.sleep(5)
+        time.sleep(6) # 🎀 Esperando 1 segundinho a mais para sites lentos
         
         relatar(f"Rolando a página {pagina_atual} para carregar fotos...")
-        for _ in range(8):
+        for _ in range(10): # 🎀 Rolando um pouco mais fundo
             navegador.execute_script("window.scrollBy(0, 800);")
             time.sleep(0.5)
             
-        # Busca links com imagem e que tenham o texto "S/" (Soles)
         elementos = navegador.find_elements(By.XPATH, "//a[descendant::img and descendant::*[contains(text(), 'S/')]]")
         
         contagem_pagina = 0
@@ -68,13 +69,10 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
                 if matches:
                     precos_convertidos = []
                     for m in matches:
-                        # Limpa o valor para o padrão de leitura em Python
                         valor_str = m.replace(',', '') if m.count(',') > 1 or (',' in m and '.' in m) else m.replace(',', '.')
                         precos_convertidos.append(float(valor_str))
                     
-                    # 🎀 PULO DO GATO: Sempre pega o maior preço (Preço original riscado)
                     valor_preco = max(precos_convertidos)
-                    
                     links_vistos.add(link_produto)
                     
                     navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", item)
@@ -83,8 +81,8 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
                     print_binario = item.screenshot_as_png
                     imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
                     
-                    # 🎀 DIETA DA SOFIA APLICADA: Encolhendo a foto agora para aguentar as 70 páginas!
-                    imagem.thumbnail((380, 520), Image.Resampling.LANCZOS)
+                    # 🎀 DIETA MAIS FORTE: Reduzindo ainda mais na memória (não afeta tanto o PDF final)
+                    imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
                     
                     produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
                     contagem_pagina += 1
@@ -93,109 +91,12 @@ def extrair_produtos_estilos(navegador, url_base, arquivo_saida, titulo_genero, 
                 
         relatar(f"Página {pagina_atual} finalizada: {contagem_pagina} produtos salvos.")
         
-        # Parada antecipada: se a página não trouxe nenhum produto, acabou o catálogo!
+        # 🎀 NOVO FREIO INTELIGENTE: Só para se ver 3 páginas vazias seguidas
         if contagem_pagina == 0:
-            relatar(f"Fim da lista detectado na página {pagina_atual}.")
-            break
-
-    if not produtos_capturados: 
-        relatar("❌ Nenhum produto encontrado.")
-        return None
-
-    relatar(f"Montando PDF Profissional de {titulo_categoria} com {len(produtos_capturados)} itens...")
-    
-    # --- MONTAGEM DO PDF ---
-    largura, altura = 1240, 1754 
-    page_center_x = largura / 2
-    paginas_pdf = []
-    data_geracao = datetime.now().strftime("%d/%m/%Y")
-    
-    def obter_fonte(tamanho, negrito=False):
-        caminhos = [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if negrito else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if negrito else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-            "/System/Library/Fonts/Supplemental/Arial Bold.ttf" if negrito else "/System/Library/Fonts/Supplemental/Arial.ttf",
-            "arial.ttf"
-        ]
-        for caminho in caminhos:
-            try: return ImageFont.truetype(caminho, tamanho)
-            except: pass
-        return ImageFont.load_default()
-
-    f_tit = obter_fonte(38, negrito=True)
-    f_sub = obter_fonte(28)              
-    f_txt = obter_fonte(20)              
-    f_rodape = obter_fonte(16)           
-
-    try:
-        logo_img = Image.open("logo.png").convert("RGBA")
-        logo_img.thumbnail((250, 100), Image.Resampling.LANCZOS)
-    except Exception:
-        logo_img = None
-
-    capa = Image.new('RGB', (largura, altura), 'white')
-    draw = ImageDraw.Draw(capa)
-    
-    draw.text((page_center_x, 150), "Análise de Mercado - Estilos Peru", fill="black", font=f_tit, anchor="mm")
-    draw.text((page_center_x, 230), f"Gênero: {titulo_genero}", fill="gray", font=f_sub, anchor="mm")
-    draw.text((page_center_x, 290), f"Categoria: {titulo_categoria}", fill="gray", font=f_sub, anchor="mm")
-    draw.text((page_center_x, 400), "Resumo de Faixas de Preço", fill="black", font=f_sub, anchor="mm")
-
-    # Faixas de preço adaptadas de 20 em 20 SOLES
-    faixas = [(0, 20.99, "Até S/ 20")]
-    for limite in range(20, 300, 20):
-        faixas.append((limite + 0.01, limite + 20.99, f"De S/ {limite + 1} a S/ {limite + 20}"))
-    faixas.append((300.01, float('inf'), "Acima de S/ 300"))
-    
-    contagem_precos = {f[2]: 0 for f in faixas}
-    
-    for p in produtos_capturados:
-        for min_p, max_p, label in faixas:
-            if min_p <= p['preco'] <= max_p:
-                contagem_precos[label] += 1
+            paginas_vazias_consecutivas += 1
+            relatar(f"⚠️ Nenhum produto encontrado. Tentativa vazia {paginas_vazias_consecutivas}/3.")
+            if paginas_vazias_consecutivas >= 3:
+                relatar(f"Fim da lista confirmado após {pagina_atual} páginas.")
                 break
-
-    y_pos = 480
-    for label, count in contagem_precos.items():
-        if count > 0: # Uma pequena limpeza visual: só mostra a faixa se tiver produto nela
-            palavra = "produtos" if count != 1 else "produto"
-            draw.text((page_center_x, y_pos), f"{label} ........................ {count} {palavra}", fill="black", font=f_txt, anchor="mm")
-            y_pos += 30
-    
-    draw.text((page_center_x, y_pos + 120), f"TOTAL: {len(produtos_capturados)} produtos únicos mapeados", fill="black", font=f_tit, anchor="mm")
-    
-    # Rodapé da Capa (À esquerda)
-    draw.text((page_center_x, altura - 150), f"Gerado em: {data_geracao}", fill="gray", font=f_txt, anchor="mm")
-    
-    if logo_img:
-        logo_w, logo_h = logo_img.size
-        capa.paste(logo_img, (100, altura - logo_h - 50), logo_img)
-
-    paginas_pdf.append(capa)
-
-    ordenados = sorted(produtos_capturados, key=lambda p: p['preco'])
-    for i in range(0, len(ordenados), 9):
-        lote = ordenados[i:i+9]
-        pagina = Image.new('RGB', (largura, altura), 'white')
-        d_pagina = ImageDraw.Draw(pagina) 
-        
-        for j, prod in enumerate(lote):
-            img_copy = prod['imagem'].copy()
-            # A imagem já vem leve da "dieta", mas mantemos isso por segurança
-            img_copy.thumbnail((380, 520), Image.Resampling.LANCZOS)
-            d_prod = ImageDraw.Draw(img_copy)
-            d_prod.rectangle([0, 0, 160, 50], fill="red")
-            d_prod.text((10, 5), f"S/ {prod['preco']:.2f}", fill="white", font=f_txt)
-            x, y = 20 + ((j % 3) * 400), 30 + ((j // 3) * 560) 
-            pagina.paste(img_copy, (x, y))
-            
-        # Rodapé das Páginas (À Esquerda)
-        if logo_img: 
-            logo_w, logo_h = logo_img.size
-            pagina.paste(logo_img, (100, altura - logo_h - 50), logo_img)
-            
-        paginas_pdf.append(pagina)
-
-    paginas_pdf[0].save(arquivo_saida, save_all=True, append_images=paginas_pdf[1:])
-    relatar(f"✅ PDF finalizado com layout profissional!")
-    return arquivo_saida
+        else:
+            paginas_vazias_consecutivas = 0 # Zera o contador se achar produtos!
