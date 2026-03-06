@@ -39,16 +39,20 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
     navegador.get(url_alvo)
     time.sleep(6)
     
-    # 🎀 CLICADOR AUTOMÁTICO DE "CARGAR MÁS"
-    for i in range(1, 16): # Tenta clicar até 15 vezes
-        relatar(f"Rolando página (Nível {i})...")
-        navegador.execute_script("window.scrollTo(0, document.body.scrollHeight - 1500);")
-        time.sleep(2)
+    # 🎀 PASSEIO LENTO (LAZY-LOAD) E CLIQUE AUTOMÁTICO
+    for i in range(1, 16):
+        relatar(f"Descendo a página suavemente para revelar fotos ocultas (Ciclo {i})...")
         
+        # Rolagem em "degraus" para forçar as imagens a carregarem
+        for _ in range(12):
+            navegador.execute_script("window.scrollBy(0, 700);")
+            time.sleep(0.5)
+            
         js_click = """
-        var botoes = document.querySelectorAll('button, a, div');
+        var botoes = document.querySelectorAll('button, a, div, span');
         for (var b = 0; b < botoes.length; b++) {
-            if (botoes[b].innerText && botoes[b].innerText.toUpperCase().includes('CARGAR')) {
+            var txt = botoes[b].innerText ? botoes[b].innerText.toUpperCase() : '';
+            if (txt.includes('CARGAR') || txt.includes('VER MÁS')) {
                 botoes[b].click();
                 return true;
             }
@@ -58,17 +62,17 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
         clicou = navegador.execute_script(js_click)
         
         if clicou:
-            relatar(f"Botão 'Cargar Más' encontrado e clicado! Aguardando novos produtos...")
+            relatar(f"Botão 'Cargar Más' ativado! Aguardando o catálogo expandir...")
             time.sleep(4)
         else:
-            relatar("Nenhum botão 'Cargar Más' encontrado. Fim da lista!")
+            relatar("Fim do catálogo alcançado! Nenhuma página extra.")
             break
             
-    # Subir para o topo antes de escanear os produtos
+    # Volta para o topo rápido para começar as fotos
     navegador.execute_script("window.scrollTo(0, 0);")
-    time.sleep(1)
+    time.sleep(2)
 
-    # 🎀 DETECTOR DA BARREIRA "TE PUEDE INTERESAR"
+    # 🎀 BARREIRA DO "TE PUEDE INTERESAR"
     limite_y = float('inf')
     try:
         js_limite = """
@@ -83,44 +87,75 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
         y_encontrado = navegador.execute_script(js_limite)
         if y_encontrado != -1:
             limite_y = y_encontrado
-            relatar("Barreira 'TE PUEDE INTERESAR' detectada! Bloqueando produtos do carrossel.")
+            relatar("🛡️ Barreira 'TE PUEDE INTERESAR' ativada! Ignorando carrossel extra.")
     except Exception:
         pass
 
-    # Escanear os produtos na tela
-    elementos = navegador.find_elements(By.XPATH, "//a[descendant::img and descendant::*[contains(text(), '$')]]")
+    # 🎀 RADAR 3.0: Encontrando a caixa inteira do produto
+    relatar("Escaneando e fotografando produtos visíveis...")
+    imagens = navegador.find_elements(By.TAG_NAME, "img")
+    elementos_validos = []
     
-    for item in elementos:
+    for img in imagens:
         try:
-            # Pulo do gato: Verifica se a roupa passou da barreira do carrossel
-            item_y = item.location['y']
-            if item_y > limite_y:
+            # Pula logos e ícones pequenos (Se for invisível, agora já tem tamanho por causa do scroll suave)
+            if img.size['height'] < 100 or img.size['width'] < 100:
                 continue
                 
-            link_produto = item.get_attribute("href")
+            # Olha para a foto e sobe até achar a "Caixa Mestre" que tem o símbolo do dinheiro
+            card = img.find_element(By.XPATH, "./ancestor::*[contains(., '$') or contains(., 'UYU')][1]")
+            
+            # Filtro de segurança para não pegar o site inteiro
+            if card.size['height'] < 1200 and card.size['width'] < 800:
+                if card not in elementos_validos:
+                    elementos_validos.append(card)
+        except Exception:
+            continue
+            
+    for item in elementos_validos:
+        try:
+            item_y = item.location['y']
+            if item_y > limite_y: # Se a roupa passou da barreira proibida, descarta!
+                continue
+                
+            try:
+                # Tenta pegar o link do produto
+                link_produto = item.find_element(By.XPATH, ".//a").get_attribute("href")
+            except:
+                link_produto = item.get_attribute("href") if item.tag_name == "a" else str(item.location)
+                
             if not link_produto or link_produto in links_vistos:
                 continue
                 
             texto_item = item.get_attribute("innerText")
-            if not texto_item or "$" not in texto_item:
+            if not texto_item:
                 continue
                 
-            matches = re.findall(r'\$\s*([\d\.,]+)', texto_item)
+            # 🎀 INTELIGÊNCIA DE PREÇO: Ex: "$ 559, $ 799, OCA $ 447"
+            matches = re.findall(r'(?:\$|UYU)\s*([\d\.,]+)', texto_item)
             if matches:
                 precos_convertidos = []
                 for m in matches:
-                    valor_str = m.replace('.', '').replace(',', '') if m.count('.') > 1 else m.replace(',', '.')
-                    precos_convertidos.append(float(valor_str))
+                    valor_str = m.replace('.', '').replace(',', '') if m.count('.') > 1 or ('.' in m and ',' in m) else m.replace(',', '.')
+                    try:
+                        precos_convertidos.append(float(valor_str))
+                    except:
+                        pass
                 
-                valor_preco = max(precos_convertidos) # Pega o preço cheio original
+                if not precos_convertidos:
+                    continue
+                    
+                # A Mágica: Ele extrai todos os números que têm $ e pega SEMPRE O MAIOR (O Preço Original Riscado)
+                valor_preco = max(precos_convertidos)
+                
                 links_vistos.add(link_produto)
                 
                 navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", item)
-                time.sleep(0.3)
+                time.sleep(0.4)
                 
                 print_binario = item.screenshot_as_png
                 imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
-                imagem.thumbnail((300, 420), Image.Resampling.LANCZOS) # Dieta para a RAM!
+                imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
                 
                 produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
         except Exception:
@@ -161,7 +196,6 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
     draw.text((page_center_x, 290), f"Categoria: {titulo_categoria}", fill="gray", font=f_sub, anchor="mm")
     draw.text((page_center_x, 400), "Resumo de Faixas de Preço", fill="black", font=f_sub, anchor="mm")
 
-    # 🎀 FAIXAS DE PREÇO ADAPTADAS PARA O PESO URUGUAIO ($U)
     faixas = [(0, 499.99, "Até $ 499")]
     for limite in range(500, 3000, 500):
         faixas.append((limite, limite + 499.99, f"De $ {limite} a $ {limite + 499}"))
