@@ -6,6 +6,7 @@ from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
@@ -37,12 +38,21 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
     links_vistos = set()
     
     navegador.get(url_alvo)
+    relatar("Esperando a página carregar e limpando pop-ups...")
     time.sleep(8)
     
+    # Esmagador de Pop-ups (Cookies, Newsletters)
+    try:
+        navegador.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+        time.sleep(1)
+        navegador.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+    except:
+        pass
+
     tentativas_vazias = 0
 
-    # 🎀 ESTRATÉGIA DO ASPIRADOR DE PÓ (CAPTURA EM TEMPO REAL)
-    for ciclo in range(1, 40): # Tenta "aspirar" até 40 blocos de roupas
+    # 🎀 ESTRATÉGIA DO ASPIRADOR DE PÓ 2.0 (Sem limite de altura inicial)
+    for ciclo in range(1, 40): 
         relatar(f"Aspirando roupas na tela... (Ciclo {ciclo}) - Já temos: {len(produtos_capturados)}")
         
         # 1. Atualiza onde está a barreira proibida
@@ -50,7 +60,7 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
         var elements = document.querySelectorAll('h2, h3, h4, span, div, p');
         for (var i = 0; i < elements.length; i++) {
             var txt = elements[i].textContent || "";
-            if (txt.toUpperCase().includes('TE PUEDE INTERESAR')) {
+            if (txt.toUpperCase().includes('TE PUEDE INTERESAR') || txt.toUpperCase().includes('VISTO RECIENTEMENTE')) {
                 var rect = elements[i].getBoundingClientRect();
                 return rect.top + window.scrollY;
             }
@@ -59,23 +69,22 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
         """
         y_barreira = navegador.execute_script(js_barreira)
         
-        # 2. Localiza as roupas que estão visíveis neste exato segundo
+        # 2. Localiza as roupas
         js_finder = """
         var cards = [];
         var images = document.querySelectorAll('img');
         for (var i = 0; i < images.length; i++) {
             var img = images[i];
-            var rect = img.getBoundingClientRect();
-            if (rect.height < 120) continue; 
             
             var pai = img;
             var found = null;
-            for (var level = 0; level < 7; level++) {
+            for (var level = 0; level < 8; level++) {
                 pai = pai.parentElement;
                 if (!pai) break;
                 var txt = pai.textContent || "";
                 if (txt.includes('$') || txt.includes('UYU')) {
                     var pRect = pai.getBoundingClientRect();
+                    // Verifica se a caixa em volta parece um produto (e não o site inteiro)
                     if (pRect.height > 150 && pRect.height < 1500 && pRect.width > 100 && pRect.width < 900) {
                         found = pai;
                         break;
@@ -92,7 +101,7 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
         
         novos_encontrados = 0
         
-        # 3. Processa e tira foto de cada um imediatamente!
+        # 3. Processa e tira foto
         for item in elementos_validos:
             try:
                 # Checa se passou do carrossel proibido
@@ -102,7 +111,7 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
                     
                 txt = navegador.execute_script("return arguments[0].textContent;", item)
                 
-                # Link para não fotografar a mesma roupa duas vezes
+                # Link
                 try: link = item.find_element(By.TAG_NAME, 'a').get_attribute('href')
                 except: link = str(abs_y)
                 
@@ -137,16 +146,10 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
                 if not precos: continue
                 valor_preco = max(precos) # Preço cheio
                 
-                # Olha diretamente para a roupa para a foto carregar
+                # Scroll e foto
                 navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", item)
-                time.sleep(0.5)
+                time.sleep(0.6) # Espera um pouco mais para o lazy load da foto!
                 
-                # Garante que a foto "fantasma" já apareceu
-                h_img = navegador.execute_script("try { return arguments[0].getElementsByTagName('img')[0].naturalHeight; } catch(e) { return 100; }", item)
-                if h_img == 0:
-                    time.sleep(0.5) 
-                
-                # Bate a foto e joga na mochila
                 print_binario = item.screenshot_as_png
                 imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
                 imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
@@ -157,18 +160,16 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
             except Exception:
                 continue
                 
-        # Lógica de persistência
         if novos_encontrados > 0:
             tentativas_vazias = 0
         else:
             tentativas_vazias += 1
             
-        # 4. Força scroll para revelar o que tem embaixo
-        for _ in range(4):
-            navegador.execute_script("window.scrollBy(0, 800);")
+        # 4. Força scroll e procura botão
+        for _ in range(5):
+            navegador.execute_script("window.scrollBy(0, 700);")
             time.sleep(0.5)
             
-        # 5. Clica no Cargar Más se ele apareceu
         js_click = """
         var elements = document.querySelectorAll('button, a, span, div');
         for (var i = 0; i < elements.length; i++) {
@@ -186,8 +187,8 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
         clicou = navegador.execute_script(js_click)
         if clicou:
             relatar("Botão 'Cargar Más' ativado! Puxando nova leva...")
-            time.sleep(4)
-            tentativas_vazias = 0 # Dá um fôlego extra se achou o botão
+            time.sleep(5)
+            tentativas_vazias = 0 
             
         # Parada de Segurança: 3 ciclos inteiros sem roupa e sem botão
         if tentativas_vazias >= 3:
@@ -195,7 +196,7 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
             break
             
     if not produtos_capturados: 
-        relatar("❌ Nenhum produto capturado validamente.")
+        relatar("❌ Nenhum produto capturado validamente. A estrutura do site pode estar bloqueando a visão.")
         return None
 
     relatar(f"Montando PDF Profissional de {titulo_categoria} com {len(produtos_capturados)} itens...")
@@ -229,7 +230,6 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
     draw.text((page_center_x, 290), f"Categoria: {titulo_categoria}", fill="gray", font=f_sub, anchor="mm")
     draw.text((page_center_x, 400), "Resumo de Faixas de Preço", fill="black", font=f_sub, anchor="mm")
 
-    # 🎀 FAIXAS DE PREÇO (De 100 em 100)
     faixas = [(0, 99.99, "Até $ 99")]
     for limite in range(100, 3000, 100):
         faixas.append((limite, limite + 99.99, f"De $ {limite} a $ {limite + 99}"))
