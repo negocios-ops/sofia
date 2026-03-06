@@ -248,7 +248,7 @@ urls_bas = {
 master_urls = {
     "🇺🇾 Uruguai": {
         "Renner": urls_renner, 
-        "Hering": urls_hering
+        "Hering": urls_hering,
         "Bas": urls_bas
     },
     "🇵🇪 Peru": {
