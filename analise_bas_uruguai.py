@@ -36,155 +36,129 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
     produtos_capturados = []
     links_vistos = set()
     
-    relatar("Abrindo o site da Bas e esperando carregar...")
+    relatar("Abrindo site e forçando o carregamento...")
     navegador.get(url_alvo)
-    time.sleep(8) # Mais tempo para a página "respirar"
+    time.sleep(8)
     
-    # 🎀 PASSEIO LENTO E CLIQUE AUTOMÁTICO
-    for i in range(1, 16):
-        relatar(f"Descendo a página suavemente para revelar fotos (Ciclo {i})...")
-        
-        for _ in range(12):
-            navegador.execute_script("window.scrollBy(0, 800);")
+    # 🎀 PASSEIO E CLIQUE (Estratégia Nativa)
+    for i in range(1, 15):
+        relatar(f"Rolando página para revelar produtos ocultos (Nível {i})...")
+        for _ in range(10):
+            navegador.execute_script("window.scrollBy(0, 600);")
             time.sleep(0.5)
             
-        js_click = """
-        var botoes = document.querySelectorAll('button, a, div, span');
-        for (var b = 0; b < botoes.length; b++) {
-            var txt = botoes[b].textContent ? botoes[b].textContent.toUpperCase() : '';
-            if (txt.includes('CARGAR MÁS') || txt.includes('CARGAR MAS') || txt.includes('VER MÁS')) {
-                botoes[b].click();
-                return true;
-            }
-        }
-        return false;
-        """
-        clicou = navegador.execute_script(js_click)
-        
-        if clicou:
-            relatar(f"Botão 'Cargar Más' ativado! Carregando mais roupas...")
-            time.sleep(5)
-        else:
-            relatar("Chegamos ao fim da lista de produtos!")
+        try:
+            botoes = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'cargar', 'CARGAR'), 'CARGAR') or contains(translate(text(), 'ver m', 'VER M'), 'VER M')]")
+            clicou = False
+            for btn in botoes:
+                if btn.is_displayed():
+                    navegador.execute_script("arguments[0].click();", btn)
+                    relatar("Botão 'Cargar Más' clicado!")
+                    time.sleep(5)
+                    clicou = True
+                    break
+            if not clicou:
+                relatar("Fim da lista alcançado.")
+                break
+        except:
             break
             
+    # Voltar ao topo
     navegador.execute_script("window.scrollTo(0, 0);")
     time.sleep(2)
 
-    # 🎀 BARREIRA DO "TE PUEDE INTERESAR"
+    # 🎀 DETECTOR DA BARREIRA (TE PUEDE INTERESAR)
     limite_y = float('inf')
     try:
-        js_limite = """
-        var elementos = document.querySelectorAll('h2, h3, div, span, p');
-        for (var i = 0; i < elementos.length; i++) {
-            var txt = elementos[i].textContent ? elementos[i].textContent.toUpperCase() : '';
-            if (txt.includes('TE PUEDE INTERESAR')) {
-                return elementos[i].getBoundingClientRect().top + window.scrollY;
-            }
-        }
-        return -1;
-        """
-        y_encontrado = navegador.execute_script(js_limite)
-        if y_encontrado != -1:
-            limite_y = y_encontrado
-            relatar("🛡️ Barreira 'TE PUEDE INTERESAR' ativada! Isolando carrossel.")
-    except Exception:
+        barreiras = navegador.find_elements(By.XPATH, "//*[contains(translate(text(), 'te puede interesar', 'TE PUEDE INTERESAR'), 'TE PUEDE INTERESAR')]")
+        for b in barreiras:
+            if b.is_displayed():
+                limite_y = b.location['y']
+                relatar("🛡️ Barreira de segurança ativada. Ignorando carrosséis no rodapé.")
+                break
+    except:
         pass
 
-    # 🎀 RADAR 4.0: JAVASCRIPT NINJA PARA ENCONTRAR OS CARDS
-    relatar("Escaneando e fotografando as roupas...")
-    js_extractor = """
-    var results = [];
-    var imgs = document.querySelectorAll('img');
-    for(var i=0; i<imgs.length; i++) {
-        var img = imgs[i];
-        var rect = img.getBoundingClientRect();
-        if(rect.width < 100 || rect.height < 100) continue; 
-        
-        var node = img;
-        var foundCard = null;
-        for(var level=0; level<8; level++) {
-            node = node.parentElement;
-            if(!node) break;
+    # 🎀 ESTRATÉGIA DO "ELEVADOR"
+    relatar("Iniciando escaneamento bloco a bloco...")
+    imagens = navegador.find_elements(By.TAG_NAME, 'img')
+    elementos_validos = []
+    
+    for img in imagens:
+        try:
+            # Ignora ícones e imagens que passaram do limite do rodapé
+            if img.size['height'] < 150: continue
+            if img.location['y'] > limite_y: continue
             
-            var txt = node.textContent || "";
-            if(txt.includes('$') || txt.includes('UYU')) {
-                var box = node.getBoundingClientRect();
-                if(box.width > 120 && box.width < 600 && box.height > 200 && box.height < 1200) {
-                    foundCard = node;
-                    break;
-                }
-            }
-        }
-        if(foundCard && !results.includes(foundCard)) {
-            results.push(foundCard);
-        }
-    }
-    return results;
-    """
-    
-    elementos_validos = navegador.execute_script(js_extractor)
-    
+            # Pega o elevador e sobe na árvore do HTML (até 6 andares)
+            pai = img
+            card_encontrado = None
+            for _ in range(6):
+                pai = pai.find_element(By.XPATH, "..")
+                txt = pai.text
+                if txt and ('$' in txt or 'UYU' in txt):
+                    h, w = pai.size['height'], pai.size['width']
+                    # Se tiver tamanho de uma roupa, achamos o card perfeito!
+                    if 250 < h < 1200 and 150 < w < 800:
+                        card_encontrado = pai
+                        break
+                        
+            if card_encontrado and card_encontrado not in elementos_validos:
+                elementos_validos.append(card_encontrado)
+        except:
+            continue
+
+    relatar(f"Foram encontrados {len(elementos_validos)} cards suspeitos. Processando preços...")
+
+    # 🎀 EXTRAINDO E FOTOGRAFANDO
     for item in elementos_validos:
         try:
-            item_y = item.location['y']
-            if item_y > limite_y:
-                continue
-                
-            texto_item = item.get_attribute("textContent")
-            if not texto_item:
-                continue
-                
-            try:
-                link_produto = item.find_element(By.XPATH, ".//a").get_attribute("href")
-            except:
-                link_produto = str(item.location)
-                
-            if not link_produto or link_produto in links_vistos:
-                continue
-                
-            # 🎀 NOVO EXTRATOR DE PREÇOS URUGUAIOS (Trata $ 1.290 sem erro)
-            matches = re.findall(r'(?:\$|UYU)\s*([\d\.,]+)', texto_item)
-            if matches:
-                precos_convertidos = []
-                for m in matches:
-                    clean_str = m.replace(' ', '')
-                    if ',' in clean_str and '.' in clean_str:
-                        if clean_str.rfind(',') > clean_str.rfind('.'):
-                            clean_str = clean_str.replace('.', '').replace(',', '.')
-                        else:
-                            clean_str = clean_str.replace(',', '')
-                    elif ',' in clean_str:
-                        if len(clean_str.split(',')[-1]) == 2:
-                            clean_str = clean_str.replace(',', '.')
-                        else:
-                            clean_str = clean_str.replace(',', '')
-                    elif '.' in clean_str:
-                        if len(clean_str.split('.')[-1]) == 2:
-                             pass
-                        else:
-                             clean_str = clean_str.replace('.', '')
-                             
-                    try: precos_convertidos.append(float(clean_str))
-                    except: pass
-                
-                if not precos_convertidos:
-                    continue
-                    
-                # A Mágica: Ele sempre vai pegar o preço original mais alto
-                valor_preco = max(precos_convertidos)
-                
-                links_vistos.add(link_produto)
-                
-                navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", item)
-                time.sleep(0.5)
-                
-                print_binario = item.screenshot_as_png
-                imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
-                imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
-                
-                produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
-        except Exception:
+            navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", item)
+            time.sleep(0.4)
+            
+            txt = item.text
+            matches = re.findall(r'(?:\$|UYU)\s*([\d\.,]+)', txt)
+            if not matches: continue
+            
+            precos = []
+            for m in matches:
+                clean_str = m.replace(' ', '')
+                if ',' in clean_str and '.' in clean_str:
+                    if clean_str.rfind(',') > clean_str.rfind('.'):
+                        clean_str = clean_str.replace('.', '').replace(',', '.')
+                    else:
+                        clean_str = clean_str.replace(',', '')
+                elif ',' in clean_str:
+                    if len(clean_str.split(',')[-1]) == 2:
+                        clean_str = clean_str.replace(',', '.')
+                    else:
+                        clean_str = clean_str.replace(',', '')
+                elif '.' in clean_str:
+                    if len(clean_str.split('.')[-1]) == 2:
+                         pass
+                    else:
+                         clean_str = clean_str.replace('.', '')
+                         
+                try: precos.append(float(clean_str))
+                except: pass
+            
+            if not precos: continue
+            valor_preco = max(precos) # Preço cheio/original!
+            
+            # Pega o link para não repetir roupa
+            try: link = item.find_element(By.TAG_NAME, 'a').get_attribute('href')
+            except: link = str(item.location)
+            
+            if link in links_vistos: continue
+            links_vistos.add(link)
+            
+            # Tira a foto
+            print_binario = item.screenshot_as_png
+            imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
+            imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
+            
+            produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
+        except:
             continue
             
     if not produtos_capturados: 
