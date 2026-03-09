@@ -33,124 +33,151 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
         if log_callback:
             log_callback(mensagem)
 
-    relatar(f"Iniciando captura de {titulo_categoria} (Bas Uruguai) com Nova Tática...")
+    relatar(f"Iniciando captura de {titulo_categoria} (Bas Uruguai)...")
     produtos_capturados = []
     links_vistos = set()
     
-    # Verifica se a URL tem "page=" para o nosso hack de paginação
-    tem_paginacao = "page=" in url_alvo
+    relatar("Abrindo site e iniciando o Rolo Compressor...")
+    navegador.get(url_alvo)
+    time.sleep(8)
+    
+    # Esmaga pop-ups iniciais
+    try:
+        navegador.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+        time.sleep(1)
+    except:
+        pass
 
-    # 🎀 TÁTICA MESTRA: Navegação direta por URL (Paginação)
-    for pagina_atual in range(0, 15):
-        if tem_paginacao:
-            # Substitui o "page=0" por "page=1", "page=2", etc.
-            url_pagina = re.sub(r'page=\d+', f'page={pagina_atual}', url_alvo)
-        else:
-            separador = "&" if "?" in url_alvo else "?"
-            url_pagina = f"{url_alvo}{separador}page={pagina_atual}"
-            
-        relatar(f"Acessando Página {pagina_atual + 1} diretamente pelo servidor...")
-        navegador.get(url_pagina)
-        time.sleep(6)
+    tentativas_vazias = 0
+    
+    # 🎀 ROLO COMPRESSOR: Desce a tela passo a passo e aspira tudo na hora!
+    for passo in range(250): # Um limite enorme para nunca parar no meio
         
-        # Fecha pop-ups chatos com a tecla ESC
+        # 1. Checa a barreira do rodapé
+        limite_y = float('inf')
         try:
-            navegador.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
-            time.sleep(1)
+            js_barreira = """
+            var elements = document.querySelectorAll('h2, h3, h4, span, div, p');
+            for (var i = 0; i < elements.length; i++) {
+                var txt = elements[i].textContent || "";
+                if (txt.toUpperCase().includes('TE PUEDE INTERESAR') || txt.toUpperCase().includes('VISTO RECIENTEMENTE')) {
+                    return elements[i].getBoundingClientRect().top + window.scrollY;
+                }
+            }
+            return -1;
+            """
+            y_barreira = navegador.execute_script(js_barreira)
+            if y_barreira != -1: limite_y = y_barreira
         except:
             pass
-            
-        relatar("Rolando a página para despertar as fotos...")
-        body = navegador.find_element(By.TAG_NAME, 'body')
-        # Scroll com a tecla Page Down (Simula um humano 100%)
-        for _ in range(12):
-            body.send_keys(Keys.PAGE_DOWN)
-            time.sleep(0.5)
-            
-        navegador.execute_script("window.scrollTo(0, 0);")
-        time.sleep(1)
 
-        # 🎀 BUSCA SUPER SIMPLIFICADA
-        links = navegador.find_elements(By.TAG_NAME, "a")
-        contagem_nesta_pagina = 0
+        # 2. Localiza todos os elementos que misturam Foto + Dinheiro ($ ou UYU)
+        candidatos = navegador.find_elements(By.XPATH, "//*[.//img and (contains(., '$') or contains(., 'UYU'))]")
         
-        for link in links:
+        novos_neste_passo = 0
+        
+        for card in candidatos:
             try:
-                # 1. É um link com foto dentro?
-                imgs = link.find_elements(By.TAG_NAME, "img")
-                if not imgs: continue
+                h = card.size['height']
+                w = card.size['width']
                 
-                img = imgs[0]
-                if img.size['height'] < 80: continue # Ignora ícones pequenos
-                
-                href = link.get_attribute("href")
-                if not href or href in links_vistos: continue
-                
-                # 2. Tem o símbolo do dinheiro ($ ou UYU)?
-                txt = link.text
-                container = link
-                
-                # Se o preço não estiver no link, olha pra caixa de fora
-                if "$" not in txt and "UYU" not in txt:
-                    container = link.find_element(By.XPATH, "..")
-                    txt = container.text
-                    if "$" not in txt and "UYU" not in txt:
-                        # Olha mais uma caixa pra fora (avô)
-                        container = container.find_element(By.XPATH, "..")
-                        txt = container.text
+                # O filtro mágico: Isola perfeitamente a "caixinha" do produto ignorando o resto do site
+                if 250 < h < 1100 and 120 < w < 600:
+                    y_pos = card.location['y']
+                    
+                    # Se for recomendação do rodapé, ignora
+                    if y_pos > limite_y:
+                        continue
                         
-                matches = re.findall(r'(?:\$|UYU)\s*([\d\.,]+)', txt)
-                if not matches: continue
-                
-                # 3. Matemática do Preço Uruguaio (Mantido intacto!)
-                precos = []
-                for m in matches:
-                    clean_str = m.replace(' ', '')
-                    if ',' in clean_str and '.' in clean_str:
-                        if clean_str.rfind(',') > clean_str.rfind('.'):
-                            clean_str = clean_str.replace('.', '').replace(',', '.')
-                        else:
-                            clean_str = clean_str.replace(',', '')
-                    elif ',' in clean_str:
-                        if len(clean_str.split(',')[-1]) == 2:
-                            clean_str = clean_str.replace(',', '.')
-                        else:
-                            clean_str = clean_str.replace(',', '')
-                    elif '.' in clean_str:
-                        if len(clean_str.split('.')[-1]) == 2:
-                             pass
-                        else:
-                             clean_str = clean_str.replace('.', '')
-                    try: precos.append(float(clean_str))
-                    except: pass
-                
-                if not precos: continue
-                valor_preco = max(precos) # Preço cheio
-                
-                # 4. Bate a foto da caixa e guarda!
-                navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", container)
-                time.sleep(0.4)
-                
-                print_binario = container.screenshot_as_png
-                imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
-                imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
-                
-                links_vistos.add(href)
-                produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
-                contagem_nesta_pagina += 1
-                
-            except Exception:
+                    # Pega o link para evitar roupas duplicadas
+                    try: link = card.find_element(By.TAG_NAME, 'a').get_attribute('href')
+                    except: link = str(y_pos)
+                    
+                    if not link or link in links_vistos:
+                        continue
+                        
+                    texto = card.text
+                    matches = re.findall(r'(?:\$|UYU)\s*([\d\.,]+)', texto)
+                    if not matches:
+                        continue
+                        
+                    # 3. Matemática do Preço (Intacta)
+                    precos = []
+                    for m in matches:
+                        clean_str = m.replace(' ', '')
+                        if ',' in clean_str and '.' in clean_str:
+                            if clean_str.rfind(',') > clean_str.rfind('.'):
+                                clean_str = clean_str.replace('.', '').replace(',', '.')
+                            else:
+                                clean_str = clean_str.replace(',', '')
+                        elif ',' in clean_str:
+                            if len(clean_str.split(',')[-1]) == 2:
+                                clean_str = clean_str.replace(',', '.')
+                            else:
+                                clean_str = clean_str.replace(',', '')
+                        elif '.' in clean_str:
+                            if len(clean_str.split('.')[-1]) == 2: pass
+                            else: clean_str = clean_str.replace('.', '')
+                        try: precos.append(float(clean_str))
+                        except: pass
+                        
+                    if not precos:
+                        continue
+                        
+                    valor_preco = max(precos) # Preço cheio original
+                    
+                    # Tira a foto imediatamente antes que o site a apague!
+                    navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", card)
+                    time.sleep(0.3)
+                    
+                    print_binario = card.screenshot_as_png
+                    imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
+                    imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
+                    
+                    links_vistos.add(link)
+                    produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
+                    novos_neste_passo += 1
+            except:
                 continue
                 
-        relatar(f"✅ {contagem_nesta_pagina} produtos encontrados na página {pagina_atual + 1}.")
+        if novos_neste_passo > 0:
+            tentativas_vazias = 0
+            relatar(f"[{passo}] Aspirou +{novos_neste_passo} roupas. Total na mochila: {len(produtos_capturados)}")
+        else:
+            tentativas_vazias += 1
+            
+        # 4. Desce a tela como um humano lendo (500 pixels por vez)
+        navegador.execute_script("window.scrollBy(0, 500);")
+        time.sleep(0.4)
         
-        # Se a página voltar vazia, é porque as roupas acabaram de verdade!
-        if contagem_nesta_pagina == 0:
-            relatar("A página veio vazia. Fim do estoque detectado!")
+        # 5. Se o botão aparecer, o rolo compressor esmaga ele na hora!
+        js_click = """
+        var elements = document.querySelectorAll('button, a, span, div');
+        var clicou = false;
+        for (var i = 0; i < elements.length; i++) {
+            var txt = elements[i].textContent || "";
+            if (txt.toUpperCase().includes('CARGAR MÁS') || txt.toUpperCase().includes('CARGAR MAS')) {
+                var rect = elements[i].getBoundingClientRect();
+                if (rect.width > 0 && rect.height > 0) {
+                    elements[i].click();
+                    clicou = true;
+                }
+            }
+        }
+        return clicou;
+        """
+        if navegador.execute_script(js_click):
+            relatar("Botão 'Cargar Más' esmagado! Abrindo mais catálogo...")
+            time.sleep(3)
+            tentativas_vazias = 0
+            
+        # Freio de emergência: se der 15 passos seguidos sem ver roupa nem botão, a loja acabou
+        if tentativas_vazias > 15:
+            relatar("Fim do catálogo confirmado. Vamos ao PDF!")
             break
             
     if not produtos_capturados: 
-        relatar("❌ Nenhum produto capturado validamente.")
+        relatar("❌ Nenhum produto encontrado. A página pode estar fora do ar.")
         return None
 
     relatar(f"Montando PDF Profissional de {titulo_categoria} com {len(produtos_capturados)} itens...")
