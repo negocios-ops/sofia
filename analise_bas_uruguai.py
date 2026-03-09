@@ -33,15 +33,14 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
         if log_callback:
             log_callback(mensagem)
 
-    relatar(f"Iniciando captura de {titulo_categoria} (Bas Uruguai) via Navegação por URL...")
+    relatar(f"Iniciando captura de {titulo_categoria} (Bas Uruguai) via URL Hack...")
     produtos_capturados = []
     links_vistos = set()
     
     tem_paginacao = "page=" in url_alvo
-    pagina_atual = 0
     
-    # 🎀 TÁTICA MESTRA: Pula de URL em URL apenas se o botão existir
-    while pagina_atual < 30: # Teto de segurança
+    # 🎀 NAVEGAÇÃO DIRETA (A Porta dos Fundos)
+    for pagina_atual in range(0, 15):
         if tem_paginacao:
             url_pagina = re.sub(r'page=\d+', f'page={pagina_atual}', url_alvo)
         else:
@@ -50,7 +49,7 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
             
         relatar(f"Acessando Página {pagina_atual} diretamente pelo servidor...")
         navegador.get(url_pagina)
-        time.sleep(7)
+        time.sleep(6)
         
         try:
             navegador.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
@@ -58,16 +57,35 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
         except:
             pass
             
-        relatar("Rolando a página para carregar as fotos...")
-        # Desce a tela de forma ritmada para carregar tudo (Lazy load)
-        for _ in range(12):
+        relatar("Mapeando a página suavemente para acordar todas as 50+ fotos...")
+        # Desce a tela de pouquinho em pouquinho para garantir que nenhuma foto fique invisível
+        for _ in range(15):
             navegador.execute_script("window.scrollBy(0, 600);")
             time.sleep(0.5)
             
+        # Pega a altura da barreira para não pegar produtos recomendados de baixo
+        limite_y = float('inf')
+        try:
+            y_barreira = navegador.execute_script("""
+                var elements = document.querySelectorAll('h2, h3, h4, span, div, p');
+                for (var i = 0; i < elements.length; i++) {
+                    var txt = elements[i].textContent || "";
+                    if (txt.toUpperCase().includes('TE PUEDE INTERESAR') || txt.toUpperCase().includes('VISTO RECIENTEMENTE')) {
+                        return elements[i].getBoundingClientRect().top + window.scrollY;
+                    }
+                }
+                return -1;
+            """)
+            if y_barreira != -1: limite_y = y_barreira
+        except:
+            pass
+
+        # Volta ao topo para começar a fotografar
         navegador.execute_script("window.scrollTo(0, 0);")
         time.sleep(1)
 
-        # 🎀 BUSCA E FOTOGRAFIA
+        # 🎀 SCANNER DETALHISTA
+        relatar("Analisando as roupas encontradas...")
         links = navegador.find_elements(By.TAG_NAME, "a")
         contagem_nesta_pagina = 0
         
@@ -76,56 +94,56 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
                 imgs = link.find_elements(By.TAG_NAME, "img")
                 if not imgs: continue
                 
-                img = imgs[0]
-                if img.size['height'] < 80: continue 
-                
                 href = link.get_attribute("href")
                 if not href or href in links_vistos: continue
                 
+                # Tenta achar o preço perto da foto
                 txt = link.text
                 container = link
-                
-                # Sobe a caixa até achar o símbolo do dinheiro
-                if "$" not in txt and "UYU" not in txt:
-                    container = link.find_element(By.XPATH, "..")
+                for _ in range(3):
+                    if "$" in txt or "UYU" in txt:
+                        break
+                    container = container.find_element(By.XPATH, "..")
                     txt = container.text
-                    if "$" not in txt and "UYU" not in txt:
-                        container = container.find_element(By.XPATH, "..")
-                        txt = container.text
                         
                 matches = re.findall(r'(?:\$|UYU)\s*([\d\.,]+)', txt)
                 if not matches: continue
                 
-                # Matemática Uruguaia de Preços Original
+                # Checa se passou do carrossel proibido
+                abs_y = navegador.execute_script("return arguments[0].getBoundingClientRect().top + window.scrollY;", container)
+                if abs_y > limite_y:
+                    continue
+                
+                # Matemática Uruguaia (Perfeita!)
                 precos = []
                 for m in matches:
                     clean_str = m.replace(' ', '')
                     if ',' in clean_str and '.' in clean_str:
-                        if clean_str.rfind(',') > clean_str.rfind('.'):
-                            clean_str = clean_str.replace('.', '').replace(',', '.')
-                        else:
-                            clean_str = clean_str.replace(',', '')
+                        if clean_str.rfind(',') > clean_str.rfind('.'): clean_str = clean_str.replace('.', '').replace(',', '.')
+                        else: clean_str = clean_str.replace(',', '')
                     elif ',' in clean_str:
-                        if len(clean_str.split(',')[-1]) == 2:
-                            clean_str = clean_str.replace(',', '.')
-                        else:
-                            clean_str = clean_str.replace(',', '')
+                        if len(clean_str.split(',')[-1]) == 2: clean_str = clean_str.replace(',', '.')
+                        else: clean_str = clean_str.replace(',', '')
                     elif '.' in clean_str:
-                        if len(clean_str.split('.')[-1]) == 2:
-                             pass
-                        else:
-                             clean_str = clean_str.replace('.', '')
+                        if len(clean_str.split('.')[-1]) == 2: pass
+                        else: clean_str = clean_str.replace('.', '')
                     try: precos.append(float(clean_str))
                     except: pass
                 
                 if not precos: continue
-                valor_preco = max(precos) # Mantém apenas o maior preço (Original)
+                valor_preco = max(precos) # Pega o preço cheio original
                 
+                # A MÁGICA: Para bem em cima da foto, espera carregar e tira o print
                 navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", container)
-                time.sleep(0.4)
+                time.sleep(0.6) # <--- Esse tempo extra garante que a foto apareça antes do flash!
                 
                 print_binario = container.screenshot_as_png
                 imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
+                
+                # Filtro para não pegar ícones minúsculos que passaram sem querer
+                if imagem.size[1] < 150:
+                    continue
+                    
                 imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
                 
                 links_vistos.add(href)
@@ -135,32 +153,11 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
             except Exception:
                 continue
                 
-        relatar(f"✅ {contagem_nesta_pagina} produtos encontrados na página {pagina_atual}.")
+        relatar(f"✅ {contagem_nesta_pagina} produtos capturados na página {pagina_atual}. Total: {len(produtos_capturados)}")
         
-        # 🎀 VERIFICAÇÃO DO BOTÃO "CARGAR MÁS"
-        js_tem_botao = """
-        var elements = document.querySelectorAll('button, a, span, div');
-        for (var i = 0; i < elements.length; i++) {
-            var txt = elements[i].textContent || "";
-            if (txt.toUpperCase().includes('CARGAR MÁS') || txt.toUpperCase().includes('VER MÁS')) {
-                var rect = elements[i].getBoundingClientRect();
-                if (rect.height > 0) return true; // Botão existe e está visível na página
-            }
-        }
-        return false;
-        """
-        tem_botao = navegador.execute_script(js_tem_botao)
-        
-        # Lógica de Decisão
+        # Se a página voltar vazia, o estoque do servidor acabou
         if contagem_nesta_pagina == 0:
-            relatar("A página veio vazia de produtos novos. Fim do estoque detectado!")
-            break
-            
-        if tem_botao:
-            relatar("Botão 'Cargar Más' detectado na tela! Avançando para a próxima URL...")
-            pagina_atual += 1
-        else:
-            relatar("Nenhum botão 'Cargar Más' detectado no final da página. Este é o fim do catálogo!")
+            relatar("A página veio sem produtos novos. Fim do catálogo!")
             break
             
     if not produtos_capturados: 
@@ -198,7 +195,6 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
     draw.text((page_center_x, 290), f"Categoria: {titulo_categoria}", fill="gray", font=f_sub, anchor="mm")
     draw.text((page_center_x, 400), "Resumo de Faixas de Preço", fill="black", font=f_sub, anchor="mm")
 
-    # 🎀 FAIXAS DE PREÇO (De 100 em 100)
     faixas = [(0, 99.99, "Até $ 99")]
     for limite in range(100, 3000, 100):
         faixas.append((limite, limite + 99.99, f"De $ {limite} a $ {limite + 99}"))
