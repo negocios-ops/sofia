@@ -8,6 +8,7 @@ import analise_renner_uruguai as renner
 import analise_hering_uruguai as hering
 import analise_estilos_peru as estilos
 import analise_bas_uruguai as bas
+import analise_hm_uruguai as hm
 
 st.set_page_config(page_title="Sofia - Dashboard", page_icon="🎀", layout="centered")
 
@@ -244,12 +245,107 @@ urls_bas = {
         "Pijamas": "https://www.bas.com.uy/nina/ropa-para-dormir?category-1=nina&category-2=ropa-para-dormir&fuzzy=0&operator=and&facets=category-1%2Ccategory-2%2Cfuzzy%2Coperator&sort=release_desc&page=0"
     }
 }
+urls_hm = {
+    "Masculino": {
+        "Camisetas": "https://uy.hm.com/hombre/remeras?category-1=hombre&category-2=remeras&fuzzy=0&operator=and&facets=category-1%2Ccategory-2%2Cfuzzy%2Coperator&sort=score_desc&page=0",
+        "Calças": "https://uy.hm.com/hombre/pantalones?category-1=hombre&category-2=pantalones&fuzzy=0&operator=and&facets=category-1%2Ccategory-2%2Cfuzzy%2Coperator&sort=score_desc&page=0",
+        "Jeans": "https://uy.hm.com/hombre/jeans?category-1=hombre&category-2=jeans&fuzzy=0&operator=and&facets=category-1%2Ccategory-2%2Cfuzzy%2Coperator&sort=score_desc&page=0",
+        "Suéters": "https://uy.hm.com/hombre/sweaters-y-cardigans?category-1=hombre&category-2=sweaters-y-cardigans&fuzzy=0&operator=and&facets=category-1%2Ccategory-2%2Cfuzzy%2Coperator&sort=score_desc&page=0"
+    },
+    "Feminino": {
+        "Vestidos": "https://uy.hm.com/mujer/vestidos?category-1=mujer&category-2=vestidos&fuzzy=0&operator=and&facets=category-1%2Ccategory-2%2Cfuzzy%2Coperator&sort=score_desc&page=0",
+        "Casacos": "https://uy.hm.com/mujer/camperas-y-abrigos?category-1=mujer&category-2=camperas-y-abrigos&fuzzy=0&operator=and&facets=category-1%2Ccategory-2%2Cfuzzy%2Coperator&sort=score_desc&page=0",
+        "Blusas": "https://uy.hm.com/mujer/remeras-y-tops?category-1=mujer&category-2=remeras-y-tops&fuzzy=0&operator=and&facets=category-1%2Ccategory-2%2Cfuzzy%2Coperator&sort=score_desc&page=0",
+        "Suéters": "https://uy.hm.com/mujer/sweaters-y-cardigans?category-1=mujer&category-2=sweaters-y-cardigans&fuzzy=0&operator=and&facets=category-1%2Ccategory-2%2Cfuzzy%2Coperator&sort=score_desc&page=0"
+    },
+    "RN (0-1 ano)": {
+        "Conjuntos": "https://uy.hm.com/bebes/recien-nacido/conjuntos?category-1=bebes&category-2=recien-nacido&category-3=conjuntos&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=orders_desc&page=0",
+        "Macacão": "https://uy.hm.com/bebes/recien-nacido/ropa/monos?category-1=bebes&category-2=recien-nacido&category-3=ropa&category-4=monos&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=orders_desc&page=0",
+        "Casacos": "https://uy.hm.com/bebes/recien-nacido/ropa-de-abrigo?category-1=bebes&category-2=recien-nacido&category-3=ropa-de-abrigo&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=orders_desc&page=0",
+        "Bodies": "https://uy.hm.com/bebes/recien-nacido/ropa/bodies?category-1=bebes&category-2=recien-nacido&category-3=ropa&category-4=bodies&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=orders_desc&page=0",
+        "Calças": "https://uy.hm.com/bebes/recien-nacido/ropa/pantalones-y-calzas?category-1=bebes&category-2=recien-nacido&category-3=ropa&category-4=pantalones-y-calzas&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=orders_desc&page=0",
+        "Pijamas": "https://uy.hm.com/bebes/recien-nacido/ropa/ropa-de-dormir-y-pijamas?category-1=bebes&category-2=recien-nacido&category-3=ropa&category-4=ropa-de-dormir-y-pijamas&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=orders_desc&page=0",
+        "Blusões": "https://uy.hm.com/bebes/recien-nacido/ropa/buzos-y-sweaters?category-1=bebes&category-2=recien-nacido&category-3=ropa&category-4=buzos-y-sweaters&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=orders_desc&page=0",
+        "Vestidos": "https://uy.hm.com/bebes/recien-nacido/ropa/vestidos?category-1=bebes&category-2=recien-nacido&category-3=ropa&category-4=vestidos&fuzzy=0&operator=and&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator&sort=orders_desc&page=0"
+    },
+    "Menina (0-2 anos)": {
+        "Conjuntos": "https://uy.hm.com/bebes/bebe/conjuntos?category-1=bebes&category-2=bebe&category-3=conjuntos&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Bodies": "https://uy.hm.com/bebes/bebe/ropa/bodies?category-1=bebes&category-2=bebe&category-3=ropa&category-4=bodies&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Blusas": "https://uy.hm.com/bebes/bebe/ropa/remeras-y-camisas?category-1=bebes&category-2=bebe&category-3=ropa&category-4=remeras-y-camisas&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Vestidos": "https://uy.hm.com/bebes/bebe/ropa/vestidos?category-1=bebes&category-2=bebe&category-3=ropa&category-4=vestidos&fuzzy=0&operator=and&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator&sort=score_desc&page=0",
+        "Shorts": "https://uy.hm.com/bebes/bebe/ropa/shorts?category-1=bebes&category-2=bebe&category-3=ropa&category-4=shorts&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Blusões": "https://uy.hm.com/bebes/bebe/ropa/buzos-y-sweaters?category-1=bebes&category-2=bebe&category-3=ropa&category-4=buzos-y-sweaters&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Calças": "https://uy.hm.com/bebes/bebe/ropa/pantalones-y-calzas?category-1=bebes&category-2=bebe&category-3=ropa&category-4=pantalones-y-calzas&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Jeans": "https://uy.hm.com/bebes/bebe/ropa/pantalones-y-calzas/jeans?category-1=bebes&category-2=bebe&category-3=ropa&category-4=pantalones-y-calzas&category-5=jeans&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Ccategory-5%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Macacões": "https://uy.hm.com/bebes/bebe/ropa/monos?category-1=bebes&category-2=bebe&category-3=ropa&category-4=monos&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Pijamas": "https://uy.hm.com/bebes/bebe/ropa/ropa-de-dormir-y-pijamas?category-1=bebes&category-2=bebe&category-3=ropa&category-4=ropa-de-dormir-y-pijamas&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Casacos": "https://uy.hm.com/bebes/bebe/ropa/camperas-y-abrigos?category-1=bebes&category-2=bebe&category-3=ropa&category-4=camperas-y-abrigos&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0"
+    },
+    "Menino (0-2 anos)": {
+        "Conjuntos": "https://uy.hm.com/bebes/bebe/conjuntos?category-1=bebes&category-2=bebe&category-3=conjuntos&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Bodies": "https://uy.hm.com/bebes/bebe/ropa/bodies?category-1=bebes&category-2=bebe&category-3=ropa&category-4=bodies&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Blusas": "https://uy.hm.com/bebes/bebe/ropa/remeras-y-camisas?category-1=bebes&category-2=bebe&category-3=ropa&category-4=remeras-y-camisas&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Blusões": "https://uy.hm.com/bebes/bebe/ropa/buzos-y-sweaters?category-1=bebes&category-2=bebe&category-3=ropa&category-4=buzos-y-sweaters&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Calças": "https://uy.hm.com/bebes/bebe/ropa/pantalones-y-calzas?category-1=bebes&category-2=bebe&category-3=ropa&category-4=pantalones-y-calzas&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Jeans": "https://uy.hm.com/bebes/bebe/ropa/pantalones-y-calzas/jeans?category-1=bebes&category-2=bebe&category-3=ropa&category-4=pantalones-y-calzas&category-5=jeans&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Ccategory-5%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Macacões": "https://uy.hm.com/bebes/bebe/ropa/monos?category-1=bebes&category-2=bebe&category-3=ropa&category-4=monos&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Casacos": "https://uy.hm.com/bebes/bebe/ropa/camperas-y-abrigos?category-1=bebes&category-2=bebe&category-3=ropa&category-4=camperas-y-abrigos&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Pijamas": "https://uy.hm.com/bebes/bebe/ropa/ropa-de-dormir-y-pijamas?category-1=bebes&category-2=bebe&category-3=ropa&category-4=ropa-de-dormir-y-pijamas&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0"
+    },
+    "Menina (2-8 anos)": {
+        "Vestidos": "https://uy.hm.com/ninos/2-8a/ropa/vestidos?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=vestidos&fuzzy=0&operator=and&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator&sort=score_desc&page=0",
+        "Blusas": "https://uy.hm.com/ninos/2-8a/ropa/remeras-y-camisas?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=remeras-y-camisas&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Blusões": "https://uy.hm.com/ninos/2-8a/ropa/buzos-y-sweaters?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=buzos-y-sweaters&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Calças": "https://uy.hm.com/ninos/2-8a/ropa/pantalones?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=pantalones&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Jeans": "https://uy.hm.com/ninos/2-8a/ropa/pantalones-y-calzas/jeans?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=pantalones-y-calzas&category-5=jeans&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Ccategory-5%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Conjuntos": "https://uy.hm.com/ninos/2-8a/ropa/conjuntos?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=conjuntos&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Saias": "https://uy.hm.com/ninos/2-8a/ropa/polleras?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=polleras&fuzzy=0&operator=and&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator&sort=score_desc&page=0",
+        "Shorts": "https://uy.hm.com/ninos/2-8a/ropa/shorts-y-bermudas?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=shorts-y-bermudas&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Pijamas": "https://uy.hm.com/ninos/2-8a/ropa/ropa-de-dormir?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=ropa-de-dormir&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Casacos": "https://uy.hm.com/ninos/2-8a/ropa/camperas-y-abrigos?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=camperas-y-abrigos&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Trajes de baño": "https://uy.hm.com/ninos/2-8a/ropa/trajes-de-bano?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=trajes-de-bano&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0"
+    },
+    "Menino (2-8 anos)": {
+        "Blusas": "https://uy.hm.com/ninos/2-8a/ropa/remeras-y-camisas?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=remeras-y-camisas&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Blusões": "https://uy.hm.com/ninos/2-8a/ropa/buzos-y-sweaters?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=buzos-y-sweaters&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Calças": "https://uy.hm.com/ninos/2-8a/ropa/pantalones?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=pantalones&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Jeans": "https://uy.hm.com/ninos/2-8a/ropa/pantalones-y-calzas/jeans?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=pantalones-y-calzas&category-5=jeans&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Ccategory-5%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Conjuntos": "https://uy.hm.com/ninos/2-8a/ropa/conjuntos?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=conjuntos&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Shorts": "https://uy.hm.com/ninos/2-8a/ropa/shorts-y-bermudas?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=shorts-y-bermudas&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Pijamas": "https://uy.hm.com/ninos/2-8a/ropa/ropa-de-dormir?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=ropa-de-dormir&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Casacos": "https://uy.hm.com/ninos/2-8a/ropa/camperas-y-abrigos?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=camperas-y-abrigos&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Trajes de baño": "https://uy.hm.com/ninos/2-8a/ropa/trajes-de-bano?category-1=ninos&category-2=2-8a&category-3=ropa&category-4=trajes-de-bano&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0"
+    },
+    "Menina (9-14 anos)": {
+        "Blusas": "https://uy.hm.com/ninos/9-14a/ropa/remeras-y-camisas?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=remeras-y-camisas&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Vestidos": "https://uy.hm.com/ninos/9-14a/ropa/vestidos?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=vestidos&fuzzy=0&operator=and&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator&sort=score_desc&page=0",
+        "Blusões": "https://uy.hm.com/ninos/9-14a/ropa/buzos-y-sweaters?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=buzos-y-sweaters&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Calças": "https://uy.hm.com/ninos/9-14a/ropa/pantalones-y-calzas?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=pantalones-y-calzas&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Jeans": "https://uy.hm.com/ninos/9-14a/ropa/jeans?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=jeans&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Conjuntos": "https://uy.hm.com/ninos/9-14a/ropa/conjuntos?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=conjuntos&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Saias": "https://uy.hm.com/ninos/9-14a/ropa/polleras?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=polleras&fuzzy=0&operator=and&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator&sort=score_desc&page=0",
+        "Pijamas": "https://uy.hm.com/ninos/9-14a/ropa/ropa-de-dormir?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=ropa-de-dormir&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Shorts": "https://uy.hm.com/ninos/9-14a/ropa/shorts?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=shorts&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Traje de baño": "https://uy.hm.com/ninos/9-14a/ropa/trajes-de-bano?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=trajes-de-bano&fuzzy=0&operator=and&grupo-de-cliente=nina&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0"
+    },
+    "Menino (9-14 anos)": {
+        "Blusas": "https://uy.hm.com/ninos/9-14a/ropa/remeras-y-camisas?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=remeras-y-camisas&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Blusões": "https://uy.hm.com/ninos/9-14a/ropa/buzos-y-sweaters?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=buzos-y-sweaters&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Calças": "https://uy.hm.com/ninos/9-14a/ropa/pantalones-y-calzas?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=pantalones-y-calzas&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Jeans": "https://uy.hm.com/ninos/9-14a/ropa/jeans?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=jeans&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Conjuntos": "https://uy.hm.com/ninos/9-14a/ropa/conjuntos?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=conjuntos&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Pijamas": "https://uy.hm.com/ninos/9-14a/ropa/ropa-de-dormir?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=ropa-de-dormir&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Shorts": "https://uy.hm.com/ninos/9-14a/ropa/shorts?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=shorts&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0",
+        "Traje de baño": "https://uy.hm.com/ninos/9-14a/ropa/trajes-de-bano?category-1=ninos&category-2=9-14a&category-3=ropa&category-4=trajes-de-bano&fuzzy=0&operator=and&grupo-de-cliente=nino&facets=category-1%2Ccategory-2%2Ccategory-3%2Ccategory-4%2Cfuzzy%2Coperator%2Cgrupo-de-cliente&sort=score_desc&page=0"
+    }
+}
 
 master_urls = {
     "🇺🇾 Uruguai": {
         "Renner": urls_renner, 
         "Hering": urls_hering,
         "Bas": urls_bas
+        "H&M": urls_hm
     },
     "🇵🇪 Peru": {
         "Estilos": urls_estilos
@@ -351,6 +447,11 @@ if st.button("⏩️ Iniciar Robô Sofia", use_container_width=True):
             elif marca_selecionada == "Bas":
                 navegador = bas.iniciar_navegador()
                 arquivo_final = bas.extrair_produtos_bas(
+                    navegador, url_alvo, caminho_arquivo, gen_alvo, cat_alvo, log_callback=atualizar_tela
+                )
+            elif marca_selecionada == "H&M":
+                navegador = hm.iniciar_navegador()
+                arquivo_final = hm.extrair_produtos_hm(
                     navegador, url_alvo, caminho_arquivo, gen_alvo, cat_alvo, log_callback=atualizar_tela
                 )
             if arquivo_final:
