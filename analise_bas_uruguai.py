@@ -33,95 +33,76 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
         if log_callback:
             log_callback(mensagem)
 
-    relatar(f"Iniciando captura de {titulo_categoria} (Bas Uruguai)...")
+    relatar(f"Iniciando captura de {titulo_categoria} (Bas Uruguai) com Nova Tática...")
     produtos_capturados = []
     links_vistos = set()
     
-    navegador.get(url_alvo)
-    relatar("Esperando a página carregar e limpando pop-ups...")
-    time.sleep(8)
-    
-    # Esmagador de Pop-ups (Cookies, Newsletters)
-    try:
-        navegador.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
-        time.sleep(1)
-        navegador.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
-    except:
-        pass
+    # Verifica se a URL tem "page=" para o nosso hack de paginação
+    tem_paginacao = "page=" in url_alvo
 
-    tentativas_vazias = 0
-
-    # 🎀 ESTRATÉGIA DO ASPIRADOR DE PÓ 2.0 (Sem limite de altura inicial)
-    for ciclo in range(1, 40): 
-        relatar(f"Aspirando roupas na tela... (Ciclo {ciclo}) - Já temos: {len(produtos_capturados)}")
-        
-        # 1. Atualiza onde está a barreira proibida
-        js_barreira = """
-        var elements = document.querySelectorAll('h2, h3, h4, span, div, p');
-        for (var i = 0; i < elements.length; i++) {
-            var txt = elements[i].textContent || "";
-            if (txt.toUpperCase().includes('TE PUEDE INTERESAR') || txt.toUpperCase().includes('VISTO RECIENTEMENTE')) {
-                var rect = elements[i].getBoundingClientRect();
-                return rect.top + window.scrollY;
-            }
-        }
-        return -1;
-        """
-        y_barreira = navegador.execute_script(js_barreira)
-        
-        # 2. Localiza as roupas
-        js_finder = """
-        var cards = [];
-        var images = document.querySelectorAll('img');
-        for (var i = 0; i < images.length; i++) {
-            var img = images[i];
+    # 🎀 TÁTICA MESTRA: Navegação direta por URL (Paginação)
+    for pagina_atual in range(0, 15):
+        if tem_paginacao:
+            # Substitui o "page=0" por "page=1", "page=2", etc.
+            url_pagina = re.sub(r'page=\d+', f'page={pagina_atual}', url_alvo)
+        else:
+            separador = "&" if "?" in url_alvo else "?"
+            url_pagina = f"{url_alvo}{separador}page={pagina_atual}"
             
-            var pai = img;
-            var found = null;
-            for (var level = 0; level < 8; level++) {
-                pai = pai.parentElement;
-                if (!pai) break;
-                var txt = pai.textContent || "";
-                if (txt.includes('$') || txt.includes('UYU')) {
-                    var pRect = pai.getBoundingClientRect();
-                    // Verifica se a caixa em volta parece um produto (e não o site inteiro)
-                    if (pRect.height > 150 && pRect.height < 1500 && pRect.width > 100 && pRect.width < 900) {
-                        found = pai;
-                        break;
-                    }
-                }
-            }
-            if (found && !cards.includes(found)) {
-                cards.push(found);
-            }
-        }
-        return cards;
-        """
-        elementos_validos = navegador.execute_script(js_finder)
+        relatar(f"Acessando Página {pagina_atual + 1} diretamente pelo servidor...")
+        navegador.get(url_pagina)
+        time.sleep(6)
         
-        novos_encontrados = 0
+        # Fecha pop-ups chatos com a tecla ESC
+        try:
+            navegador.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+            time.sleep(1)
+        except:
+            pass
+            
+        relatar("Rolando a página para despertar as fotos...")
+        body = navegador.find_element(By.TAG_NAME, 'body')
+        # Scroll com a tecla Page Down (Simula um humano 100%)
+        for _ in range(12):
+            body.send_keys(Keys.PAGE_DOWN)
+            time.sleep(0.5)
+            
+        navegador.execute_script("window.scrollTo(0, 0);")
+        time.sleep(1)
+
+        # 🎀 BUSCA SUPER SIMPLIFICADA
+        links = navegador.find_elements(By.TAG_NAME, "a")
+        contagem_nesta_pagina = 0
         
-        # 3. Processa e tira foto
-        for item in elementos_validos:
+        for link in links:
             try:
-                # Checa se passou do carrossel proibido
-                abs_y = navegador.execute_script("return arguments[0].getBoundingClientRect().top + window.scrollY;", item)
-                if y_barreira != -1 and abs_y > y_barreira:
-                    continue 
-                    
-                txt = navegador.execute_script("return arguments[0].textContent;", item)
+                # 1. É um link com foto dentro?
+                imgs = link.find_elements(By.TAG_NAME, "img")
+                if not imgs: continue
                 
-                # Link
-                try: link = item.find_element(By.TAG_NAME, 'a').get_attribute('href')
-                except: link = str(abs_y)
+                img = imgs[0]
+                if img.size['height'] < 80: continue # Ignora ícones pequenos
                 
-                if not link or link in links_vistos:
-                    continue
-                    
-                # Matemática de extração de preço uruguaio ($ 1.290)
+                href = link.get_attribute("href")
+                if not href or href in links_vistos: continue
+                
+                # 2. Tem o símbolo do dinheiro ($ ou UYU)?
+                txt = link.text
+                container = link
+                
+                # Se o preço não estiver no link, olha pra caixa de fora
+                if "$" not in txt and "UYU" not in txt:
+                    container = link.find_element(By.XPATH, "..")
+                    txt = container.text
+                    if "$" not in txt and "UYU" not in txt:
+                        # Olha mais uma caixa pra fora (avô)
+                        container = container.find_element(By.XPATH, "..")
+                        txt = container.text
+                        
                 matches = re.findall(r'(?:\$|UYU)\s*([\d\.,]+)', txt)
                 if not matches: continue
                 
+                # 3. Matemática do Preço Uruguaio (Mantido intacto!)
                 precos = []
                 for m in matches:
                     clean_str = m.replace(' ', '')
@@ -146,57 +127,30 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
                 if not precos: continue
                 valor_preco = max(precos) # Preço cheio
                 
-                # Scroll e foto
-                navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", item)
-                time.sleep(0.6) # Espera um pouco mais para o lazy load da foto!
+                # 4. Bate a foto da caixa e guarda!
+                navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", container)
+                time.sleep(0.4)
                 
-                print_binario = item.screenshot_as_png
+                print_binario = container.screenshot_as_png
                 imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
                 imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
                 
-                links_vistos.add(link)
+                links_vistos.add(href)
                 produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
-                novos_encontrados += 1
+                contagem_nesta_pagina += 1
+                
             except Exception:
                 continue
                 
-        if novos_encontrados > 0:
-            tentativas_vazias = 0
-        else:
-            tentativas_vazias += 1
-            
-        # 4. Força scroll e procura botão
-        for _ in range(5):
-            navegador.execute_script("window.scrollBy(0, 700);")
-            time.sleep(0.5)
-            
-        js_click = """
-        var elements = document.querySelectorAll('button, a, span, div');
-        for (var i = 0; i < elements.length; i++) {
-            var txt = elements[i].textContent || "";
-            if (txt.toUpperCase().includes('CARGAR') || txt.toUpperCase().includes('VER MÁS')) {
-                var rect = elements[i].getBoundingClientRect();
-                if (rect.width > 0 && rect.height > 0) {
-                    elements[i].click();
-                    return true;
-                }
-            }
-        }
-        return false;
-        """
-        clicou = navegador.execute_script(js_click)
-        if clicou:
-            relatar("Botão 'Cargar Más' ativado! Puxando nova leva...")
-            time.sleep(5)
-            tentativas_vazias = 0 
-            
-        # Parada de Segurança: 3 ciclos inteiros sem roupa e sem botão
-        if tentativas_vazias >= 3:
-            relatar("Nenhuma roupa nova ou botão encontrados recentemente. Fim da categoria!")
+        relatar(f"✅ {contagem_nesta_pagina} produtos encontrados na página {pagina_atual + 1}.")
+        
+        # Se a página voltar vazia, é porque as roupas acabaram de verdade!
+        if contagem_nesta_pagina == 0:
+            relatar("A página veio vazia. Fim do estoque detectado!")
             break
             
     if not produtos_capturados: 
-        relatar("❌ Nenhum produto capturado validamente. A estrutura do site pode estar bloqueando a visão.")
+        relatar("❌ Nenhum produto capturado validamente.")
         return None
 
     relatar(f"Montando PDF Profissional de {titulo_categoria} com {len(produtos_capturados)} itens...")
