@@ -33,13 +33,13 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
         if log_callback:
             log_callback(mensagem)
 
-    relatar(f"Iniciando captura de {titulo_categoria} (Bas Uruguai) via URL Hack...")
+    relatar(f"Iniciando captura de {titulo_categoria} (Bas Uruguai)...")
     produtos_capturados = []
     links_vistos = set()
     
     tem_paginacao = "page=" in url_alvo
-    
-    # 🎀 NAVEGAÇÃO DIRETA (A Porta dos Fundos)
+
+    # 🎀 HACK DA URL COMBINADO COM EXTRAÇÃO EM TEMPO REAL
     for pagina_atual in range(0, 15):
         if tem_paginacao:
             url_pagina = re.sub(r'page=\d+', f'page={pagina_atual}', url_alvo)
@@ -47,25 +47,22 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
             separador = "&" if "?" in url_alvo else "?"
             url_pagina = f"{url_alvo}{separador}page={pagina_atual}"
             
-        relatar(f"Acessando Página {pagina_atual} diretamente pelo servidor...")
+        relatar(f"🌐 Acessando Página {pagina_atual} diretamente...")
         navegador.get(url_pagina)
-        time.sleep(6)
+        time.sleep(8)
         
         try:
             navegador.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
             time.sleep(1)
-        except:
-            pass
+        except: pass
+        
+        produtos_nesta_pagina = 0
+        relatar(f"Sugando produtos da página {pagina_atual} passo a passo...")
+        
+        # Desce a página em 20 "degraus", escaneando e fotografando em cada parada
+        for passo in range(25): 
             
-        relatar("Mapeando a página suavemente para acordar todas as 50+ fotos...")
-        # Desce a tela de pouquinho em pouquinho para garantir que nenhuma foto fique invisível
-        for _ in range(15):
-            navegador.execute_script("window.scrollBy(0, 600);")
-            time.sleep(0.5)
-            
-        # Pega a altura da barreira para não pegar produtos recomendados de baixo
-        limite_y = float('inf')
-        try:
+            # Pega a barreira para não pegar produtos recomendados
             y_barreira = navegador.execute_script("""
                 var elements = document.querySelectorAll('h2, h3, h4, span, div, p');
                 for (var i = 0; i < elements.length; i++) {
@@ -76,88 +73,78 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
                 }
                 return -1;
             """)
-            if y_barreira != -1: limite_y = y_barreira
-        except:
-            pass
 
-        # Volta ao topo para começar a fotografar
-        navegador.execute_script("window.scrollTo(0, 0);")
-        time.sleep(1)
-
-        # 🎀 SCANNER DETALHISTA
-        relatar("Analisando as roupas encontradas...")
-        links = navegador.find_elements(By.TAG_NAME, "a")
-        contagem_nesta_pagina = 0
-        
-        for link in links:
-            try:
-                imgs = link.find_elements(By.TAG_NAME, "img")
-                if not imgs: continue
-                
-                href = link.get_attribute("href")
-                if not href or href in links_vistos: continue
-                
-                # Tenta achar o preço perto da foto
-                txt = link.text
-                container = link
-                for _ in range(3):
-                    if "$" in txt or "UYU" in txt:
-                        break
-                    container = container.find_element(By.XPATH, "..")
+            elementos_a = navegador.find_elements(By.TAG_NAME, "a")
+            
+            for a in elementos_a:
+                try:
+                    href = a.get_attribute("href")
+                    if not href or href in links_vistos: continue
+                    
+                    imgs = a.find_elements(By.TAG_NAME, "img")
+                    if not imgs: continue
+                    
+                    # Checa o preço (sobe na árvore até 3 vezes)
+                    container = a
                     txt = container.text
+                    for _ in range(3):
+                        if "$" in txt or "UYU" in txt: break
+                        container = container.find_element(By.XPATH, "..")
+                        txt = container.text
                         
-                matches = re.findall(r'(?:\$|UYU)\s*([\d\.,]+)', txt)
-                if not matches: continue
-                
-                # Checa se passou do carrossel proibido
-                abs_y = navegador.execute_script("return arguments[0].getBoundingClientRect().top + window.scrollY;", container)
-                if abs_y > limite_y:
-                    continue
-                
-                # Matemática Uruguaia (Perfeita!)
-                precos = []
-                for m in matches:
-                    clean_str = m.replace(' ', '')
-                    if ',' in clean_str and '.' in clean_str:
-                        if clean_str.rfind(',') > clean_str.rfind('.'): clean_str = clean_str.replace('.', '').replace(',', '.')
-                        else: clean_str = clean_str.replace(',', '')
-                    elif ',' in clean_str:
-                        if len(clean_str.split(',')[-1]) == 2: clean_str = clean_str.replace(',', '.')
-                        else: clean_str = clean_str.replace(',', '')
-                    elif '.' in clean_str:
-                        if len(clean_str.split('.')[-1]) == 2: pass
-                        else: clean_str = clean_str.replace('.', '')
-                    try: precos.append(float(clean_str))
-                    except: pass
-                
-                if not precos: continue
-                valor_preco = max(precos) # Pega o preço cheio original
-                
-                # A MÁGICA: Para bem em cima da foto, espera carregar e tira o print
-                navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", container)
-                time.sleep(0.6) # <--- Esse tempo extra garante que a foto apareça antes do flash!
-                
-                print_binario = container.screenshot_as_png
-                imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
-                
-                # Filtro para não pegar ícones minúsculos que passaram sem querer
-                if imagem.size[1] < 150:
+                    matches = re.findall(r'(?:\$|UYU)\s*([\d\.,]+)', txt)
+                    if not matches: continue
+                    
+                    # Evita o carrossel de rodapé
+                    abs_y = navegador.execute_script("return arguments[0].getBoundingClientRect().top + window.scrollY;", container)
+                    if y_barreira != -1 and abs_y > y_barreira - 50:
+                        continue
+                    
+                    # Lógica Intacta do Preço Uruguaio (Preço Original Máximo)
+                    precos = []
+                    for m in matches:
+                        clean_str = m.replace(' ', '')
+                        if ',' in clean_str and '.' in clean_str:
+                            if clean_str.rfind(',') > clean_str.rfind('.'): clean_str = clean_str.replace('.', '').replace(',', '.')
+                            else: clean_str = clean_str.replace(',', '')
+                        elif ',' in clean_str:
+                            if len(clean_str.split(',')[-1]) == 2: clean_str = clean_str.replace(',', '.')
+                            else: clean_str = clean_str.replace(',', '')
+                        elif '.' in clean_str:
+                            if len(clean_str.split('.')[-1]) == 2: pass
+                            else: clean_str = clean_str.replace('.', '')
+                        try: precos.append(float(clean_str))
+                        except: pass
+                    
+                    if not precos: continue
+                    valor_preco = max(precos)
+                    
+                    # Bate a foto agora, antes que o site apague a roupa!
+                    navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", container)
+                    time.sleep(0.5) 
+                    
+                    print_binario = container.screenshot_as_png
+                    imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
+                    
+                    if imagem.size[1] < 150: continue # Ignora ícones pequenos
+                    
+                    imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
+                    
+                    links_vistos.add(href)
+                    produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
+                    produtos_nesta_pagina += 1
+                except Exception:
                     continue
                     
-                imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
-                
-                links_vistos.add(href)
-                produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
-                contagem_nesta_pagina += 1
-                
-            except Exception:
-                continue
-                
-        relatar(f"✅ {contagem_nesta_pagina} produtos capturados na página {pagina_atual}. Total: {len(produtos_capturados)}")
+            # Após sugar tudo na visão atual, desce um degrau!
+            navegador.execute_script("window.scrollBy(0, 600);")
+            time.sleep(0.5)
+            
+        relatar(f"✅ {produtos_nesta_pagina} produtos encontrados e salvos da página {pagina_atual}. Total: {len(produtos_capturados)}")
         
-        # Se a página voltar vazia, o estoque do servidor acabou
-        if contagem_nesta_pagina == 0:
-            relatar("A página veio sem produtos novos. Fim do catálogo!")
+        # Se a página voltar completamente vazia, significa que o estoque do site acabou
+        if produtos_nesta_pagina == 0:
+            relatar("Fim do catálogo confirmado! (Página vazia)")
             break
             
     if not produtos_capturados: 
