@@ -2,11 +2,12 @@ import io
 import time
 import re
 import os
+import json
+import requests
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
@@ -26,6 +27,21 @@ def iniciar_navegador():
         
     return webdriver.Chrome(service=servico, options=opcoes)
 
+# Função detetive para achar qualquer preço escondido no pacote de dados
+def encontrar_precos_no_json(obj):
+    precos = []
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            # Procura chaves que tenham "price" no nome (ListPrice, Price, etc)
+            if 'price' in k.lower() and isinstance(v, (int, float)) and v > 0:
+                precos.append(float(v))
+            elif isinstance(v, (dict, list)):
+                precos.extend(encontrar_precos_no_json(v))
+    elif isinstance(obj, list):
+        for item in obj:
+            precos.extend(encontrar_precos_no_json(item))
+    return precos
+
 def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titulo_categoria, log_callback=None):
     
     def relatar(mensagem):
@@ -33,13 +49,13 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
         if log_callback:
             log_callback(mensagem)
 
-    relatar(f"Iniciando captura de {titulo_categoria} (Bas Uruguai)...")
+    relatar(f"Iniciando captura de {titulo_categoria} (Bas Uruguai) via Modo Hacker (__NEXT_DATA__)...")
     produtos_capturados = []
     links_vistos = set()
     
     tem_paginacao = "page=" in url_alvo
 
-    # 🎀 HACK DA URL COMBINADO COM EXTRAÇÃO EM TEMPO REAL
+    # 🎀 HACK DA URL + EXTRAÇÃO DIRETA DO CÓDIGO FONTE
     for pagina_atual in range(0, 15):
         if tem_paginacao:
             url_pagina = re.sub(r'page=\d+', f'page={pagina_atual}', url_alvo)
@@ -47,108 +63,77 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
             separador = "&" if "?" in url_alvo else "?"
             url_pagina = f"{url_alvo}{separador}page={pagina_atual}"
             
-        relatar(f"🌐 Acessando Página {pagina_atual} diretamente...")
+        relatar(f"🌐 Acessando Página {pagina_atual} e interceptando dados...")
         navegador.get(url_pagina)
-        time.sleep(8)
+        time.sleep(4) # Não precisamos mais esperar a tela desenhar toda, só o script carregar!
         
         try:
-            navegador.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
-            time.sleep(1)
-        except: pass
-        
-        produtos_nesta_pagina = 0
-        relatar(f"Sugando produtos da página {pagina_atual} passo a passo...")
-        
-        # Desce a página em 20 "degraus", escaneando e fotografando em cada parada
-        for passo in range(25): 
+            # 1. Encontra o Santo Graal que você descobriu na foto
+            script_tag = navegador.find_element(By.ID, "__NEXT_DATA__")
+            json_texto = script_tag.get_attribute('innerHTML')
+            dados_site = json.loads(json_texto)
             
-            # Pega a barreira para não pegar produtos recomendados
-            y_barreira = navegador.execute_script("""
-                var elements = document.querySelectorAll('h2, h3, h4, span, div, p');
-                for (var i = 0; i < elements.length; i++) {
-                    var txt = elements[i].textContent || "";
-                    if (txt.toUpperCase().includes('TE PUEDE INTERESAR') || txt.toUpperCase().includes('VISTO RECIENTEMENTE')) {
-                        return elements[i].getBoundingClientRect().top + window.scrollY;
-                    }
-                }
-                return -1;
-            """)
-
-            elementos_a = navegador.find_elements(By.TAG_NAME, "a")
+            # 2. Navega pelas pastas de dados (conforme sua foto)
+            produtos_json = []
+            try:
+                # O caminho exato baseado no seu print!
+                arestas = dados_site['props']['pageProps']['data']['collection']['products']['edges']
+                for aresta in arestas:
+                    produtos_json.append(aresta['node'])
+            except KeyError:
+                relatar("Aviso: Estrutura de dados diferente nesta página, tentando busca geral.")
+                pass
+                
+            produtos_nesta_pagina = 0
             
-            for a in elementos_a:
+            # 3. Processa cada produto encontrado no pacote de dados
+            for prod in produtos_json:
                 try:
-                    href = a.get_attribute("href")
-                    if not href or href in links_vistos: continue
-                    
-                    imgs = a.find_elements(By.TAG_NAME, "img")
-                    if not imgs: continue
-                    
-                    # Checa o preço (sobe na árvore até 3 vezes)
-                    container = a
-                    txt = container.text
-                    for _ in range(3):
-                        if "$" in txt or "UYU" in txt: break
-                        container = container.find_element(By.XPATH, "..")
-                        txt = container.text
+                    # Pega a URL da Imagem
+                    img_url = None
+                    if 'image' in prod and len(prod['image']) > 0:
+                        img_url = prod['image'][0].get('url')
                         
-                    matches = re.findall(r'(?:\$|UYU)\s*([\d\.,]+)', txt)
-                    if not matches: continue
-                    
-                    # Evita o carrossel de rodapé
-                    abs_y = navegador.execute_script("return arguments[0].getBoundingClientRect().top + window.scrollY;", container)
-                    if y_barreira != -1 and abs_y > y_barreira - 50:
+                    if not img_url or img_url in links_vistos:
                         continue
+                        
+                    # Extrai TODOS os preços desse produto e pega o maior (Preço Original)
+                    todos_os_precos = encontrar_precos_no_json(prod)
+                    if not todos_os_precos:
+                        continue
+                        
+                    valor_preco = max(todos_os_precos)
                     
-                    # Lógica Intacta do Preço Uruguaio (Preço Original Máximo)
-                    precos = []
-                    for m in matches:
-                        clean_str = m.replace(' ', '')
-                        if ',' in clean_str and '.' in clean_str:
-                            if clean_str.rfind(',') > clean_str.rfind('.'): clean_str = clean_str.replace('.', '').replace(',', '.')
-                            else: clean_str = clean_str.replace(',', '')
-                        elif ',' in clean_str:
-                            if len(clean_str.split(',')[-1]) == 2: clean_str = clean_str.replace(',', '.')
-                            else: clean_str = clean_str.replace(',', '')
-                        elif '.' in clean_str:
-                            if len(clean_str.split('.')[-1]) == 2: pass
-                            else: clean_str = clean_str.replace('.', '')
-                        try: precos.append(float(clean_str))
-                        except: pass
-                    
-                    if not precos: continue
-                    valor_preco = max(precos)
-                    
-                    # Bate a foto agora, antes que o site apague a roupa!
-                    navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", container)
-                    time.sleep(0.5) 
-                    
-                    print_binario = container.screenshot_as_png
-                    imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
-                    
-                    if imagem.size[1] < 150: continue # Ignora ícones pequenos
-                    
-                    imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
-                    
-                    links_vistos.add(href)
-                    produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
-                    produtos_nesta_pagina += 1
-                except Exception:
+                    # 4. Baixa a imagem perfeitamente via servidor, sem depender da tela
+                    resposta_img = requests.get(img_url, timeout=10)
+                    if resposta_img.status_size != 200:
+                        imagem = Image.open(io.BytesIO(resposta_img.content)).convert('RGB')
+                        
+                        # Filtro de segurança
+                        if imagem.size[1] < 100: continue
+                        
+                        imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
+                        
+                        links_vistos.add(img_url)
+                        produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
+                        produtos_nesta_pagina += 1
+                        
+                except Exception as e:
                     continue
                     
-            # Após sugar tudo na visão atual, desce um degrau!
-            navegador.execute_script("window.scrollBy(0, 600);")
-            time.sleep(0.5)
+            relatar(f"✅ {produtos_nesta_pagina} produtos interceptados na página {pagina_atual}. Total: {len(produtos_capturados)}")
             
-        relatar(f"✅ {produtos_nesta_pagina} produtos encontrados e salvos da página {pagina_atual}. Total: {len(produtos_capturados)}")
-        
-        # Se a página voltar completamente vazia, significa que o estoque do site acabou
-        if produtos_nesta_pagina == 0:
-            relatar("Fim do catálogo confirmado! (Página vazia)")
+            # Se o pacote de dados vier vazio de produtos novos, acabou o catálogo!
+            if produtos_nesta_pagina == 0:
+                relatar("Pacote de dados vazio. Fim do catálogo confirmado!")
+                break
+                
+        except Exception as e:
+            relatar("Não foi possível ler os dados ocultos desta página. Encerrando busca.")
             break
             
     if not produtos_capturados: 
-        relatar("❌ Nenhum produto capturado validamente.")
+        relatar("❌ Nenhum produto interceptado com sucesso.")
         return None
 
     relatar(f"Montando PDF Profissional de {titulo_categoria} com {len(produtos_capturados)} itens...")
