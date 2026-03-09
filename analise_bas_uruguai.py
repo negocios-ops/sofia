@@ -33,151 +33,138 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
         if log_callback:
             log_callback(mensagem)
 
-    relatar(f"Iniciando captura de {titulo_categoria} (Bas Uruguai)...")
+    relatar(f"Iniciando captura de {titulo_categoria} (Bas Uruguai) via Navegação por URL...")
     produtos_capturados = []
     links_vistos = set()
     
-    relatar("Abrindo site e iniciando o Rolo Compressor...")
-    navegador.get(url_alvo)
-    time.sleep(8)
+    tem_paginacao = "page=" in url_alvo
+    pagina_atual = 0
     
-    # Esmaga pop-ups iniciais
-    try:
-        navegador.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
-        time.sleep(1)
-    except:
-        pass
-
-    tentativas_vazias = 0
-    
-    # 🎀 ROLO COMPRESSOR: Desce a tela passo a passo e aspira tudo na hora!
-    for passo in range(250): # Um limite enorme para nunca parar no meio
+    # 🎀 TÁTICA MESTRA: Pula de URL em URL apenas se o botão existir
+    while pagina_atual < 30: # Teto de segurança
+        if tem_paginacao:
+            url_pagina = re.sub(r'page=\d+', f'page={pagina_atual}', url_alvo)
+        else:
+            separador = "&" if "?" in url_alvo else "?"
+            url_pagina = f"{url_alvo}{separador}page={pagina_atual}"
+            
+        relatar(f"Acessando Página {pagina_atual} diretamente pelo servidor...")
+        navegador.get(url_pagina)
+        time.sleep(7)
         
-        # 1. Checa a barreira do rodapé
-        limite_y = float('inf')
         try:
-            js_barreira = """
-            var elements = document.querySelectorAll('h2, h3, h4, span, div, p');
-            for (var i = 0; i < elements.length; i++) {
-                var txt = elements[i].textContent || "";
-                if (txt.toUpperCase().includes('TE PUEDE INTERESAR') || txt.toUpperCase().includes('VISTO RECIENTEMENTE')) {
-                    return elements[i].getBoundingClientRect().top + window.scrollY;
-                }
-            }
-            return -1;
-            """
-            y_barreira = navegador.execute_script(js_barreira)
-            if y_barreira != -1: limite_y = y_barreira
+            navegador.find_element(By.TAG_NAME, 'body').send_keys(Keys.ESCAPE)
+            time.sleep(1)
         except:
             pass
+            
+        relatar("Rolando a página para carregar as fotos...")
+        # Desce a tela de forma ritmada para carregar tudo (Lazy load)
+        for _ in range(12):
+            navegador.execute_script("window.scrollBy(0, 600);")
+            time.sleep(0.5)
+            
+        navegador.execute_script("window.scrollTo(0, 0);")
+        time.sleep(1)
 
-        # 2. Localiza todos os elementos que misturam Foto + Dinheiro ($ ou UYU)
-        candidatos = navegador.find_elements(By.XPATH, "//*[.//img and (contains(., '$') or contains(., 'UYU'))]")
+        # 🎀 BUSCA E FOTOGRAFIA
+        links = navegador.find_elements(By.TAG_NAME, "a")
+        contagem_nesta_pagina = 0
         
-        novos_neste_passo = 0
-        
-        for card in candidatos:
+        for link in links:
             try:
-                h = card.size['height']
-                w = card.size['width']
+                imgs = link.find_elements(By.TAG_NAME, "img")
+                if not imgs: continue
                 
-                # O filtro mágico: Isola perfeitamente a "caixinha" do produto ignorando o resto do site
-                if 250 < h < 1100 and 120 < w < 600:
-                    y_pos = card.location['y']
-                    
-                    # Se for recomendação do rodapé, ignora
-                    if y_pos > limite_y:
-                        continue
+                img = imgs[0]
+                if img.size['height'] < 80: continue 
+                
+                href = link.get_attribute("href")
+                if not href or href in links_vistos: continue
+                
+                txt = link.text
+                container = link
+                
+                # Sobe a caixa até achar o símbolo do dinheiro
+                if "$" not in txt and "UYU" not in txt:
+                    container = link.find_element(By.XPATH, "..")
+                    txt = container.text
+                    if "$" not in txt and "UYU" not in txt:
+                        container = container.find_element(By.XPATH, "..")
+                        txt = container.text
                         
-                    # Pega o link para evitar roupas duplicadas
-                    try: link = card.find_element(By.TAG_NAME, 'a').get_attribute('href')
-                    except: link = str(y_pos)
-                    
-                    if not link or link in links_vistos:
-                        continue
-                        
-                    texto = card.text
-                    matches = re.findall(r'(?:\$|UYU)\s*([\d\.,]+)', texto)
-                    if not matches:
-                        continue
-                        
-                    # 3. Matemática do Preço (Intacta)
-                    precos = []
-                    for m in matches:
-                        clean_str = m.replace(' ', '')
-                        if ',' in clean_str and '.' in clean_str:
-                            if clean_str.rfind(',') > clean_str.rfind('.'):
-                                clean_str = clean_str.replace('.', '').replace(',', '.')
-                            else:
-                                clean_str = clean_str.replace(',', '')
-                        elif ',' in clean_str:
-                            if len(clean_str.split(',')[-1]) == 2:
-                                clean_str = clean_str.replace(',', '.')
-                            else:
-                                clean_str = clean_str.replace(',', '')
-                        elif '.' in clean_str:
-                            if len(clean_str.split('.')[-1]) == 2: pass
-                            else: clean_str = clean_str.replace('.', '')
-                        try: precos.append(float(clean_str))
-                        except: pass
-                        
-                    if not precos:
-                        continue
-                        
-                    valor_preco = max(precos) # Preço cheio original
-                    
-                    # Tira a foto imediatamente antes que o site a apague!
-                    navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", card)
-                    time.sleep(0.3)
-                    
-                    print_binario = card.screenshot_as_png
-                    imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
-                    imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
-                    
-                    links_vistos.add(link)
-                    produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
-                    novos_neste_passo += 1
-            except:
+                matches = re.findall(r'(?:\$|UYU)\s*([\d\.,]+)', txt)
+                if not matches: continue
+                
+                # Matemática Uruguaia de Preços Original
+                precos = []
+                for m in matches:
+                    clean_str = m.replace(' ', '')
+                    if ',' in clean_str and '.' in clean_str:
+                        if clean_str.rfind(',') > clean_str.rfind('.'):
+                            clean_str = clean_str.replace('.', '').replace(',', '.')
+                        else:
+                            clean_str = clean_str.replace(',', '')
+                    elif ',' in clean_str:
+                        if len(clean_str.split(',')[-1]) == 2:
+                            clean_str = clean_str.replace(',', '.')
+                        else:
+                            clean_str = clean_str.replace(',', '')
+                    elif '.' in clean_str:
+                        if len(clean_str.split('.')[-1]) == 2:
+                             pass
+                        else:
+                             clean_str = clean_str.replace('.', '')
+                    try: precos.append(float(clean_str))
+                    except: pass
+                
+                if not precos: continue
+                valor_preco = max(precos) # Mantém apenas o maior preço (Original)
+                
+                navegador.execute_script("arguments[0].scrollIntoView({block: 'center'});", container)
+                time.sleep(0.4)
+                
+                print_binario = container.screenshot_as_png
+                imagem = Image.open(io.BytesIO(print_binario)).convert('RGB')
+                imagem.thumbnail((300, 420), Image.Resampling.LANCZOS)
+                
+                links_vistos.add(href)
+                produtos_capturados.append({'imagem': imagem, 'preco': valor_preco})
+                contagem_nesta_pagina += 1
+                
+            except Exception:
                 continue
                 
-        if novos_neste_passo > 0:
-            tentativas_vazias = 0
-            relatar(f"[{passo}] Aspirou +{novos_neste_passo} roupas. Total na mochila: {len(produtos_capturados)}")
-        else:
-            tentativas_vazias += 1
-            
-        # 4. Desce a tela como um humano lendo (500 pixels por vez)
-        navegador.execute_script("window.scrollBy(0, 500);")
-        time.sleep(0.4)
+        relatar(f"✅ {contagem_nesta_pagina} produtos encontrados na página {pagina_atual}.")
         
-        # 5. Se o botão aparecer, o rolo compressor esmaga ele na hora!
-        js_click = """
+        # 🎀 VERIFICAÇÃO DO BOTÃO "CARGAR MÁS"
+        js_tem_botao = """
         var elements = document.querySelectorAll('button, a, span, div');
-        var clicou = false;
         for (var i = 0; i < elements.length; i++) {
             var txt = elements[i].textContent || "";
-            if (txt.toUpperCase().includes('CARGAR MÁS') || txt.toUpperCase().includes('CARGAR MAS')) {
+            if (txt.toUpperCase().includes('CARGAR MÁS') || txt.toUpperCase().includes('VER MÁS')) {
                 var rect = elements[i].getBoundingClientRect();
-                if (rect.width > 0 && rect.height > 0) {
-                    elements[i].click();
-                    clicou = true;
-                }
+                if (rect.height > 0) return true; // Botão existe e está visível na página
             }
         }
-        return clicou;
+        return false;
         """
-        if navegador.execute_script(js_click):
-            relatar("Botão 'Cargar Más' esmagado! Abrindo mais catálogo...")
-            time.sleep(3)
-            tentativas_vazias = 0
+        tem_botao = navegador.execute_script(js_tem_botao)
+        
+        # Lógica de Decisão
+        if contagem_nesta_pagina == 0:
+            relatar("A página veio vazia de produtos novos. Fim do estoque detectado!")
+            break
             
-        # Freio de emergência: se der 15 passos seguidos sem ver roupa nem botão, a loja acabou
-        if tentativas_vazias > 15:
-            relatar("Fim do catálogo confirmado. Vamos ao PDF!")
+        if tem_botao:
+            relatar("Botão 'Cargar Más' detectado na tela! Avançando para a próxima URL...")
+            pagina_atual += 1
+        else:
+            relatar("Nenhum botão 'Cargar Más' detectado no final da página. Este é o fim do catálogo!")
             break
             
     if not produtos_capturados: 
-        relatar("❌ Nenhum produto encontrado. A página pode estar fora do ar.")
+        relatar("❌ Nenhum produto capturado validamente.")
         return None
 
     relatar(f"Montando PDF Profissional de {titulo_categoria} com {len(produtos_capturados)} itens...")
@@ -211,6 +198,7 @@ def extrair_produtos_bas(navegador, url_alvo, arquivo_saida, titulo_genero, titu
     draw.text((page_center_x, 290), f"Categoria: {titulo_categoria}", fill="gray", font=f_sub, anchor="mm")
     draw.text((page_center_x, 400), "Resumo de Faixas de Preço", fill="black", font=f_sub, anchor="mm")
 
+    # 🎀 FAIXAS DE PREÇO (De 100 em 100)
     faixas = [(0, 99.99, "Até $ 99")]
     for limite in range(100, 3000, 100):
         faixas.append((limite, limite + 99.99, f"De $ {limite} a $ {limite + 99}"))
